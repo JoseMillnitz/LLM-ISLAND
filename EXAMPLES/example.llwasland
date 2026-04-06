@@ -1,0 +1,48 @@
+# EXAMPLE: <source-file>.<ext>.llwasland
+# Created when HISTORICAL-DECISIONS in the source island exceeds 20 entries.
+# W is M upside down. These decisions "was" in land.
+# Never read automatically — only consulted for deep archaeological context.
+
+---WASLAND-HEADER---
+archives:       renderer.js.llmisland
+archived-from:  v12-2025-06-01
+reason:         HISTORICAL-DECISIONS exceeded 20 entries; HD-001 through HD-015
+                moved here; HD-016 onward remain in source island
+source-stub:    renderer.js.llmisland SUPERSEDED entry SD-archive-001 points here
+
+---MEMORY---
+## Same format and quality bar as island MEMORY. Not a dump — an archive.
+## Oldest entries first.
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  canvas chosen over DOM elements for cell rendering
+    reason:    DOM caused reflow jank on mobile at puzzle sizes above 6x6
+    date:      2024-01-05
+    outcome:   stable for entire project lifespan
+    evidence:  git:b2e1a09
+
+  - id: HD-002
+    decision:  cell size calculated dynamically from canvas dimensions
+    reason:    fixed pixel sizes broke on non-standard DPI screens
+    date:      2024-01-12
+    outcome:   works correctly; regression tests cover this
+    evidence:  git:d3f1c08
+
+  ## ... entries HD-003 through HD-015 continue here ...
+
+SUPERSEDED:
+  - id: SD-001
+    was:             cells rendered as absolutely positioned divs
+    replaced-by:     canvas rendering (see HD-001)
+    superseded-date: 2024-01-05
+    keep-because:    explains why no CSS cell classes exist in codebase
+
+## HOW THE SOURCE ISLAND REFERENCES THIS FILE:
+## In renderer.js.llmisland SUPERSEDED section:
+##
+## - id: SD-archive-001
+##   was: HISTORICAL-DECISIONS entries HD-001 through HD-015
+##   replaced-by: see renderer.js.llwasland
+##   superseded-date: 2025-06-01
+##   keep-because: archived to llwasland — not deleted

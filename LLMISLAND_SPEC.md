@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.1
+# LLM Island System — Specification v0.2
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -493,6 +493,9 @@ last-verified:  2024-03-15
 description:    Browser-based deduction puzzle. Vanilla JS, Canvas, JSON data.
                 No framework, no bundler, no server-side code.
 
+bootstrap-mode: greenfield
+bootstrap-date: 2024-01-01
+
 layers:
   core:         [data.js, generator.js, clues.js]
   presentation: [renderer.js, ui.js, uiThemes.js]
@@ -743,6 +746,292 @@ ARCHAEOLOGICAL MODE (when no author knowledge is available):
 
 ---
 
+## BOOT MODES
+
+The default mental model of "read every file → generate every island → verify"
+is correct for full audits but wrong for everyday use. On first contact with a
+project, an LLM that reads the entire codebase before producing anything useful
+is burning tokens, taking too long, and probably discouraging adoption.
+
+The island system supports three explicit boot modes. The LLM must choose or be
+instructed which mode to use. When no mode is specified, use MODE 1.
+
+---
+
+### MODE 1 — INCREMENTAL (DEFAULT)
+
+Also called: Task-Driven Boot.
+
+Philosophy: map only what is needed to complete the current task. Expand only
+when a task demands it. Stop as soon as the task can be completed safely.
+
+Process:
+  1. Create the Minimum Viable Mainland (see below) — structure only, no source
+     files read yet
+  2. Wait for a task
+  3. When a task arrives, identify which files it touches
+  4. Read only those files. Generate islands for only those files.
+  5. Generate only the direct connections those files require in the mainland
+  6. Complete the task. Update the islands as part of completion.
+  7. Repeat — the system grows as tasks are worked
+
+Allowed in this mode:
+  - Partial islands (status: partial)
+  - Unknown fields (?)
+  - Low confidence entries (confidence: low)
+  - Mainland with empty CONNECTIONS and CONTRACTS sections
+
+Rules:
+  - Do not read files unrelated to the current task
+  - Do not generate islands preemptively
+  - Stop expanding when the task can be completed safely
+  - Prefer local reasoning over global scanning
+
+When to use:
+  - Default for all new project adoptions
+  - Ongoing development sessions
+  - Any session where the full codebase is not the subject of the task
+
+---
+
+### MODE 2 — CONNECTION-FIRST
+
+Also called: Structural Boot.
+
+Philosophy: understand the architecture before understanding behavior. Build
+the dependency graph from imports and exports without reading function bodies.
+
+Process:
+  1. Scan all files for imports and exports only — do not read implementations
+  2. Build the mainland CONNECTIONS section from this scan
+  3. Create shallow islands for all files: HEADER only, SYMBOLS marked as ?
+  4. Identify the critical path: core and orchestration files first, then
+     bridges, then leaf nodes (presentation, test)
+  5. Deepen islands along the critical path when tasks require it
+
+Critical path tiers (from Gemini's analysis):
+  Tier 1 — core and orchestration: entry points, state holders, domain logic
+  Tier 2 — bridges: cross-language boundaries, external service adapters
+  Tier 3 — leaf nodes: presentation, test files, configuration
+
+Shallow island format for this mode:
+
+```
+---HEADER---
+file:           renderer.js
+language:       javascript
+role:           ?
+layer:          presentation
+status:         partial
+confidence:     low
+last-verified:  N/A
+maintained-by:  llm
+exports:        ?
+imports:        ?
+depends-on:     ?
+translation-boundary: none
+
+---SYMBOLS---
+(deferred — populate when a task touches this file)
+
+---RISKS---
+security:               ?
+regression-sensitivity: ?
+platform-sensitivity:   ?
+
+---MEMORY---
+ACTIVE-CONSTRAINTS:
+  - none yet
+HISTORICAL-DECISIONS:
+  - none yet
+SUPERSEDED:
+  - none yet
+```
+
+When to use:
+  - Large legacy codebases where architecture is unknown
+  - Pre-mapping before a major refactoring session
+  - When asked to give an architectural overview without a specific task
+  - When a human wants to understand the dependency graph before diving in
+
+---
+
+### MODE 3 — FULL MAPPING
+
+Also called: Full Review Mode.
+
+Philosophy: complete semantic mapping of the entire system. Every file read,
+every island fully populated, every contract declared.
+
+Process:
+  1. Read all source files
+  2. Read all tests
+  3. Generate all islands with full HEADER, SYMBOLS, RISKS, and MEMORY
+  4. Generate the full mainland including CONNECTIONS and CONTRACTS
+  5. Mark all uncertainty explicitly — ? for unknowns, confidence: low where
+     inferences were made
+  6. Perform the verification pass
+
+Costs:
+  - High token usage
+  - Slow — not suitable for a quick task
+  - Requires a focused, uninterrupted session
+
+When to use:
+  - Full system audits
+  - Pre-refactoring planning on a system with no existing islands
+  - Archaeological analysis (combined with archaeological mode)
+  - Critical systems where incomplete islands are unacceptable before work begins
+  - When explicitly requested by a human ("do a full mapping pass")
+
+Do NOT use this mode by default. It is the most expensive option and only
+justified when completeness is the explicit goal.
+
+---
+
+### MINIMUM VIABLE MAINLAND (MVM)
+
+Before any boot mode begins, the LLM should create this minimal mainland.
+It establishes structure without requiring knowledge of any source file.
+
+```
+---ARCHITECTURE---
+project:        ?
+version:        0
+last-verified:  <today>
+description:    ?
+
+layers:
+  core:         []
+  presentation: []
+  input:        []
+  data:         []
+  orchestration:[]
+  io:           []
+  i18n:         []
+  test:         []
+  bridge:       []
+
+load-order:
+  - ? (to be discovered)
+
+architectural-rules:
+  - AR-001: ? (to be declared after first pass)
+
+---CONNECTIONS---
+(none yet)
+
+---CONTRACTS---
+(none yet)
+
+---ARCHITECTURE-MEMORY---
+ACTIVE-CONSTRAINTS:
+  - none yet
+HISTORICAL-DECISIONS:
+  - none yet
+SUPERSEDED:
+  - none yet
+```
+
+This is always valid. An MVM mainland with no connections is not an error —
+it is an honest starting state. It becomes invalid only if connections are
+added without corresponding islands.
+
+---
+
+### CONFIDENCE-GATED EXPANSION
+
+In Modes 1 and 2, the LLM expands its understanding based on confidence:
+
+  confidence: low
+    Do not propagate changes beyond the current file.
+    Ask targeted questions or mark unknowns with ?.
+    Do not update the mainland until confidence rises.
+
+  confidence: medium
+    Proceed locally. Update the current island and its direct connections.
+    Do not cascade changes to downstream islands without verification.
+
+  confidence: high
+    Safe to propagate changes through the mainland.
+    Safe to update all bound islands.
+    Safe to update contracts if they are affected.
+
+---
+
+### EXPANSION TRIGGERS
+
+In Modes 1 and 2, expand to new files only when one of these is true:
+
+  - A dependency is required to complete the current task
+  - A contract might be violated by the current change
+  - A symbol's behavior is unclear and the ambiguity blocks the task
+  - A connection is missing in the mainland and the missing link matters now
+
+Do not expand speculatively. Expansion has a cost — token usage, time, and
+the risk of creating low-quality islands under time pressure.
+
+---
+
+### STOP-EARLY RULE
+
+Mandatory for all non-full-mapping modes:
+
+  Stop reading files as soon as the current task can be completed safely.
+
+This is not laziness — it is discipline. An LLM that reads 40 files to
+complete a task that required 3 is wasting resources and accumulating
+low-confidence islands that may need to be corrected later. Quality of
+reasoning over quantity of files read.
+
+---
+
+### BOOT MODE SUMMARY
+
+  Mode              When to use                          Token cost   Completeness
+  ──────────────    ─────────────────────────────────    ──────────   ────────────
+  1 — Incremental   Default. Any task-driven session.    Low          Grows over time
+  2 — Connection    Architecture overview. Pre-mapping.  Medium       Structural only
+  3 — Full Mapping  Audits. Explicit full-scan request.  High         Complete
+
+---
+
+## BOOTSTRAP-MODE FIELD
+
+The mainland ARCHITECTURE section carries two fields that persist the epistemic
+history of the project's island layer for all future sessions:
+
+  bootstrap-mode: greenfield | legacy | archaeological | unknown
+  bootstrap-date: <date when islands were first created>
+
+bootstrap-mode values and their implications:
+
+  greenfield
+    Islands were created alongside code from the start.
+    verified islands can be trusted as high quality.
+    Treat as a normally maintained project.
+
+  legacy
+    Islands were added to existing code after the fact.
+    Some islands may be generated or confidence: low.
+    Verify low-confidence islands before acting on them.
+
+  archaeological
+    No author knowledge was available when islands were created.
+    All islands are hypotheses until explicitly promoted to verified.
+    Treat confidence: medium the way you would treat confidence: low elsewhere.
+    A session 50 in an archaeological project is not the same as session 50
+    in a greenfield project — the islands have different epistemic weight.
+
+  unknown
+    The bootstrap mode was not recorded. Treat all islands as confidence: low.
+
+This field prevents a greenfield project from being misread as legacy after
+the first session, and prevents an archaeological project from being treated
+as verified after inferences are promoted.
+
+---
+
 ## MAINTENANCE PROTOCOL (ONGOING)
 
 The island system only works if it is maintained. These rules make maintenance
@@ -779,6 +1068,20 @@ RULE 6: Human edits require LLM review before the island is trusted.
   matches what an LLM expects, and either accept it (setting maintained-by
   back to llm or human-reviewed) or flag inconsistencies to the human.
 
+RULE 7: Question discipline — do not ask more than necessary.
+  Before asking the human anything, apply this filter:
+  (a) Can I proceed safely by marking the unknown as ? and noting it?
+      If yes: do that. Do not ask.
+  (b) Will the answer materially change what I do or produce?
+      If no: do not ask.
+  (c) If asking is necessary: batch ALL questions into ONE message.
+      Never ask one question, wait, then ask another.
+      Present all blockers at once.
+  (d) Prefer a declared assumption over an inconsequential question.
+      State it explicitly: "I am assuming X. Correct me if wrong."
+  An LLM that asks too many questions is as disruptive as one that assumes
+  too much. The ? marker exists precisely to defer non-blocking unknowns.
+
 ---
 
 ## MANAGING MEMORY OVER TIME
@@ -814,12 +1117,30 @@ VERSION REFERENCES WITHOUT GIT:
 
 WHEN THERE ARE TOO MANY DECISIONS TO TRACK:
   If a file's HISTORICAL-DECISIONS exceeds 20 entries, create a companion
-  file: <source-file>.<ext>.llmhistory
+  file: <source-file>.<ext>.llwasland
   Move older HISTORICAL-DECISIONS there.
   Keep only the 5 most recent and the most architecturally significant in
   the main island.
-  The llmhistory file is never read automatically — only when deep
+  The .llwasland file is never read automatically — only when deep
   archaeological context is needed.
+
+  The name is intentional: W is M upside down. These decisions "was" in land.
+  The .llwasland is the memory of what the island used to know.
+
+  Format: identical to the MEMORY section of a regular island — same fields,
+  same stratification, same evidence requirements. It is not a dump. It is
+  an archive with the same quality bar as the source island.
+
+  When creating a .llwasland:
+    - Move entries oldest-first
+    - Add a header declaring which island it archives and the date of archival
+    - Leave a SUPERSEDED stub in the source island pointing to it:
+        SUPERSEDED:
+          - id: SD-archive-001
+            was: HISTORICAL-DECISIONS entries HD-001 through HD-015
+            replaced-by: see renderer.js.llwasland
+            superseded-date: 2026-03-01
+            keep-because: archived to llwasland — not deleted
 
 ---
 
@@ -888,6 +1209,13 @@ For teams using XP, here is the mapping:
 
 ## QUICK REFERENCE — WHAT TO DO IN EACH SCENARIO
 
+STARTING A SESSION (do this first, every time):
+  1. Declare which boot mode you are using.
+  2. If no mode is specified: use Mode 1 — Incremental.
+  3. Create or read the MVM mainland before touching any source file.
+  4. Read only the islands relevant to your task.
+  5. Expand to other files only if the task demands it.
+
 STARTING A NEW FILE:
   Create the island. Populate all fields. Mark unknowns with ?.
   Add its connections to the mainland.
@@ -940,10 +1268,43 @@ DO NOT do these things:
 - Skip the mainland update when a connection changes.
 - Create an island after the task is done rather than as part of it.
 - Fabricate certainty. If you do not know, write ?.
+- Use Mode 3 (Full Mapping) when Mode 1 (Incremental) would suffice.
+- Read the entire codebase before starting a task that touches 2 files.
+- Expand to new files speculatively — only expand when a task demands it.
+- Generate shallow islands during Mode 3 — if doing a full pass, do it fully.
+- Forget to declare which boot mode you are using at the start of a session.
 
 ---
 
 ## VERSION HISTORY
+
+v0.2 — boot modes, session continuity, question discipline, .llwasland
+  Boot modes added: Incremental (default), Connection-First, Full Mapping
+  Task type branching in Mode 1: maintenance vs new feature flow
+  bootstrap-mode and bootstrap-date fields added to mainland ARCHITECTURE
+    Prevents greenfield projects being misread as legacy after first session
+    Preserves epistemic status of archaeological projects across sessions
+  BOOTSTRAP-MODE FIELD section added to spec
+  Question discipline formalized as RULE 7 in maintenance protocol
+    ? marker as the primary tool for non-blocking unknowns
+    Batch-all-questions rule against incremental interrogation
+    Declared assumption preferred over inconsequential question
+  Minimum Viable Mainland (MVM) template introduced
+  Confidence-gated expansion rules added
+  Stop-early rule formalized
+  Expansion triggers defined
+  .llwasland replaces .llmhistory for archived HISTORICAL-DECISIONS
+    (W is M upside down; these decisions "was" in land)
+  .llwasland format specification added
+  MODES/ directory: MODE_INCREMENTAL.md, MODE_CONNECTION.md, MODE_FULLMAP.md
+  SCENARIOS/ directory: GREENFIELD, LEGACY, ARCHAEOLOGY, CROSSLANG
+  EXAMPLES/ directory: annotated island, mainland, wasland examples
+  LLM_BOOT.md: decision tree replacing the old menu-style prompt
+  Boot modes contributed by synthesis of responses from Gemini, ChatGPT,
+    and Grok when presented with the v0.1 spec for review
+  Critical path tier model (core → bridges → leaves) from Gemini
+  Three named modes and confidence-gated expansion from ChatGPT
+  Accelerated first-boot framing and pain point analysis from Grok
 
 v0.1 — initial specification
   Background: Akita's blog post on LLM-optimal language design (2026-02-09)
@@ -957,4 +1318,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.1
+END OF SPEC v0.2

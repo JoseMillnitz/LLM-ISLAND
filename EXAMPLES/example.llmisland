@@ -1,0 +1,150 @@
+# EXAMPLE: <source-file>.<ext>.llmisland
+# Annotated reference. ## lines are annotations — not in real files.
+# Copy structure, not annotations. Trim to what is known. Use ? for unknowns.
+
+---HEADER---
+file:           renderer.js
+language:       javascript
+## role: what the file does, not how. One or two sentences max.
+role:           Canvas drawing — scene grid, player grid, cell types, long-press ring
+## layer: core|presentation|input|data|io|orchestration|i18n|test|config|build|bridge
+layer:          presentation
+## status: verified|generated|inferred|stale|partial
+status:         verified
+## confidence: high|medium|low
+confidence:     high
+## last-verified: <version-or-id>-<date>. Required when status: verified.
+last-verified:  v7-2024-03-15
+## maintained-by: llm|human-reviewed|human-unreviewed
+maintained-by:  llm
+exports:
+  - drawSceneGrid
+  - drawPlayerGrid
+  - drawCell
+  - drawLongPressRing
+## imports: list EXACT symbols used, not just the file name
+imports:
+  - i18n.js  :: I18n.t()
+  - data.js  :: SHAPES, cellRoom
+## depends-on: who uses THIS file and why (reverse of imports)
+depends-on:
+  - game.js  :: calls drawSceneGrid on every state update
+  - input.js :: triggers redraws after input events
+translation-boundary: none
+
+---SYMBOLS---
+## One entry per export. For test files: one per suite. business-rule REQUIRED for tests.
+
+SYMBOL: drawSceneGrid
+kind:           function
+## pure: true only if no side effects AND same inputs always = same output
+pure:           false
+## total: true only if always terminates AND never throws
+total:          true
+latency-budget: N/A
+## effects: ALL six subfields required. Write "none" explicitly — never leave blank.
+effects:
+  reads:    canvas-context, SHAPES, cellRoom, sceneGrid
+  mutates:  canvas-context (draw calls only)
+  allocs:   path objects per cell, bounded by active cell count
+  throws:   never
+  async:    false
+  io:       canvas write
+## called-by: <file> :: <function> :: <when/why>
+called-by:
+  - game.js :: renderFrame() :: on every state update
+calls:
+  - drawCell   :: for each active cell
+  - I18n.t()   :: room label per visible room
+## expects: preconditions the CALLER ensures — not checked internally
+expects:
+  - canvas context initialized
+  - sceneGrid non-null
+  - SHAPES[currentShape] exists
+## tests: all three subfields required. "none" is valid — never leave blank.
+tests:
+  unit:       none
+  regression: regression_tests.js :: Suite 2 "renderer produces stable output"
+  security:   none
+## business-rule: N/A for non-test symbols.
+## For test symbols: state the CONTRACT, not the procedure.
+##   Good: "confirmed cells are the only cells counted in verify"
+##   Bad:  "calls verifyBoard() and checks the result"
+business-rule: N/A
+## fragility-note: REQUIRED when fragility is medium or high
+fragility:      medium
+fragility-note: cell coordinates depend on SHAPES layout — shape changes cascade here
+
+---RISKS---
+## Each security entry needs: surface, guarded-by, test, severity (low|medium|high|critical)
+## medium+ with no guarded-by AND no test = invalid island
+security:
+  - surface:    user input reaches drawCell via input.js coordinate path
+    guarded-by: NaN guard on cell coords in input.js
+    test:       security_tests.js :: Suite 1 "invalid coordinates rejected"
+    severity:   low
+## regression-sensitivity: changes known to trigger regression failures
+regression-sensitivity:
+  - cell sizing formula changes break visual regression baselines
+  - coordinate system changes cascade to input.js hit detection
+platform-sensitivity:
+  - canvas API differs between desktop and mobile viewport
+  - long-press ring is touch-specific — no desktop equivalent
+
+---MEMORY---
+## ACTIVE-CONSTRAINTS: read ALL before proposing any change. Target: fewer than 10.
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint: coordinate origin is top-left — changing this breaks input.js
+                hit detection and all visual regression baselines
+    established: 2024-01-10
+    evidence:    git:a3f9c12
+  - id: AC-002
+    constraint: drawLongPressRing must complete within one animation frame
+    established: 2024-02-03
+    evidence:    inferred-from-call-site
+
+## HISTORICAL-DECISIONS: why the current design exists. Read before proposing changes.
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  canvas chosen over DOM elements
+    reason:    DOM caused reflow jank on mobile at puzzle sizes above 6x6
+    date:      2024-01-05
+    outcome:   stable on both desktop and mobile
+    evidence:  git:b2e1a09
+
+## SUPERSEDED: past decisions no longer in effect. NEVER deleted.
+SUPERSEDED:
+  - id: SD-001
+    was:             cells rendered as absolutely positioned divs
+    replaced-by:     canvas rendering (see HD-001)
+    superseded-date: 2024-01-05
+    keep-because:    explains why no CSS cell classes exist in codebase
+
+## --- SHALLOW ISLAND TEMPLATE (use in Mode 1/2 when details are not needed yet) ---
+## ---HEADER---
+## file:           ?
+## language:       ?
+## role:           ?
+## layer:          ?
+## status:         partial
+## confidence:     low
+## last-verified:  N/A
+## maintained-by:  llm
+## exports:        ?
+## imports:        ?
+## depends-on:     ?
+## translation-boundary: none
+## ---SYMBOLS---
+## (deferred — populate when a task touches this file)
+## ---RISKS---
+## security:               ?
+## regression-sensitivity: ?
+## platform-sensitivity:   ?
+## ---MEMORY---
+## ACTIVE-CONSTRAINTS:
+##   - none yet
+## HISTORICAL-DECISIONS:
+##   - none yet
+## SUPERSEDED:
+##   - none yet

@@ -1,0 +1,160 @@
+# EXAMPLE: connections.llmainland
+# One per project, always at project root. ## lines are annotations.
+
+---ARCHITECTURE---
+project:        SUDOKILL
+version:        7
+last-verified:  2024-03-15
+description:    Browser-based deduction puzzle. Vanilla JS, Canvas, JSON data.
+
+## bootstrap-mode: how the project was originally set up with the island system.
+## Values: greenfield | legacy | archaeological | unknown
+## This persists so future sessions know the epistemic history of the islands.
+bootstrap-mode: greenfield
+bootstrap-date: 2024-01-01
+
+## layers: assign each source file to exactly one layer
+## Allowed: core|presentation|input|data|io|orchestration|i18n|test|config|build|bridge
+layers:
+  core:         [data.js, generator.js, clues.js]
+  presentation: [renderer.js, ui.js, uiThemes.js]
+  input:        [input.js]
+  data:         [dataLoader.js]
+  orchestration:[game.js]
+  i18n:         [i18n.js]
+  test:         [tests.js, tests_generator.js, tests_game.js]
+
+## load-order: execution order when it matters. Add :: notes for constraints.
+load-order:
+  - i18n.js     :: MUST be first — all modules call I18n.t()
+  - data.js
+  - dataLoader.js
+  - uiThemes.js
+  - clues.js
+  - generator.js
+  - renderer.js
+  - input.js
+  - ui.js
+  - game.js     :: entry point — DOMContentLoaded
+
+## architectural-rules: invariants about the architecture itself.
+architectural-rules:
+  - AR-001: i18n.js has no dependencies — must never import any other module
+  - AR-002: data.js is pure — no I/O, no side effects, no async
+  - AR-003: dependency direction is always toward core — presentation never imported by core
+  - AR-004: game.js is the only module permitted to hold mutable game state
+  - AR-005: all user-visible strings must go through I18n.t() — never hardcoded
+
+---CONNECTIONS---
+## FORMAT: CONNECTION: <dependent> -> <dependency>
+## strength: critical|high|medium|low
+## language-boundary: only for cross-language connections
+
+CONNECTION: renderer.js -> data.js
+  uses:         SHAPES, cellRoom
+  why:          cell geometry derived from shape definitions
+  direction:    presentation -> core
+  strength:     high
+  break-impact: renderer cannot draw any cells
+
+CONNECTION: generator.js -> data.js
+  uses:         SHAPES, cellRoom, roomDefs
+  why:          level generation requires grid geometry and room definitions
+  direction:    core -> core
+  strength:     critical
+  break-impact: level generation fails — no puzzle can be created
+
+CONNECTION: game.js -> generator.js
+  uses:         LevelGenerator.generate()
+  why:          state machine triggers generation on new game
+  direction:    orchestration -> core
+  strength:     critical
+  break-impact: new game fails
+
+## Cross-language example:
+## CONNECTION: orchestrator.py -> renderer.c
+##   uses:              render_frame(), init_context()
+##   why:               Python delegates rendering to C for performance
+##   direction:         bridge -> core
+##   language-boundary: python -> c via ctypes
+##   strength:          critical
+##   break-impact:      all rendering fails
+
+---CONTRACTS---
+## CONTRACT: system-wide invariants. If broken → silent failures tests don't catch.
+
+CONTRACT: seed-determinism
+  statement:    same seed + same settings + same data = identical puzzle, always
+  owned-by:     generator.js
+  enforced-by:  regression_tests.js :: Suite 1 "seed determinism"
+  islands-bound:[generator.js, dataLoader.js, data.js]
+  violation-consequence: shared seeds produce different puzzles — breaks silently
+  fragility:    critical
+
+CONTRACT: i18n-completeness
+  statement:    every key in locale 'en' must exist in all other locales
+  owned-by:     i18n.js
+  enforced-by:  i18n_tests.js :: all suites (data-driven)
+  islands-bound:[i18n.js]
+  violation-consequence: missing locale shows raw key to non-English users
+  fragility:    medium
+
+---ARCHITECTURE-MEMORY---
+ACTIVE-CONSTRAINTS:
+  - id: MAC-001
+    constraint:  JSON data file item order must never change — reordering breaks
+                 seed determinism for all existing shared seeds
+    applies-to:  [dataLoader.js, generator.js]
+    established: 2024-01-15
+    evidence:    git:c4d2e11
+
+HISTORICAL-DECISIONS:
+  - id: MHD-001
+    decision:  flat file structure with underscore-encoded logical paths
+    reason:    no bundler — files must be loadable via fetch() from root
+    date:      2024-01-01
+    outcome:   stable
+    evidence:  N/A
+
+SUPERSEDED:
+  - none yet
+
+## --- MINIMUM VIABLE MAINLAND (MVM) — copy this to start a new project ---
+## ---ARCHITECTURE---
+## project:        ?
+## version:        0
+## last-verified:  <today>
+## description:    ?
+## bootstrap-mode: greenfield  ← change to: legacy|archaeological|unknown as appropriate
+## bootstrap-date: <today>
+##
+## layers:
+##   core:         []
+##   presentation: []
+##   input:        []
+##   data:         []
+##   orchestration:[]
+##   io:           []
+##   i18n:         []
+##   test:         []
+##   bridge:       []
+##
+## load-order:
+##   - ? (to be discovered)
+##
+## architectural-rules:
+##   - AR-001: ? (to be declared after first pass)
+##
+## ---CONNECTIONS---
+## (none yet)
+##
+## ---CONTRACTS---
+## (none yet)
+##
+## ---ARCHITECTURE-MEMORY---
+## ACTIVE-CONSTRAINTS:
+##   - none yet
+## HISTORICAL-DECISIONS:
+##   - none yet
+## SUPERSEDED:
+##   - none yet

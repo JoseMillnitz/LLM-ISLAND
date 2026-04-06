@@ -63,7 +63,9 @@ Without reading and simulating the entire codebase from scratch.
 
 **Propagation discipline.** When code changes, its island changes. When a connection changes, the mainland changes. When the mainland changes, all bound islands are checked. This chain keeps the system accurate over time.
 
-**Stratified memory.** The considerations log has three layers: active constraints (must be respected now), historical decisions (explains why the design is this way), and superseded decisions (archaeological record, never deleted). Active constraints stay small. The archive grows honestly.
+**Stratified memory.** The considerations log has three layers: active constraints (must be respected now), historical decisions (explains why the design is this way), and superseded decisions (archaeological record, never deleted). Active constraints stay small. When historical decisions exceed 20 entries, they are archived to a `.llwasland` file — the memory of what the island *was*.
+
+**Boot modes.** An LLM does not need to read the whole codebase to start working. Mode 1 (Incremental, the default) maps only what the current task requires. Mode 2 (Connection-First) builds the architectural graph from imports/exports without reading bodies. Mode 3 (Full Mapping) is reserved for audits. Paste `LLM_BOOT.md` at session start to enforce the right mode automatically.
 
 ---
 
@@ -131,7 +133,56 @@ It aligns naturally with Extreme Programming: collective code ownership becomes 
 
 ## Status
 
-This is version 0.1 of the specification. The format is stable enough to use in production but may be amended as edge cases are discovered. See `LLMISLAND_SPEC.md` for the full specification, validity rules, status progression model, and bootstrapping guides for both greenfield and legacy projects.
+This is version **0.2** of the specification. Changes from v0.1: three boot modes
+added (Incremental, Connection-First, Full Mapping), Minimum Viable Mainland
+template, confidence-gated expansion rules, stop-early rule, `.llwasland` archive
+format replacing `.llmhistory`. See `LLMISLAND_SPEC.md` for the full specification,
+validity rules, status progression model, and bootstrapping guides.
+
+**v0.3 is in planning.** The spec was stress-tested by three LLMs asked to attack
+its weaknesses. Their responses are cataloged in `ATTACK_ANALYSIS.md`. That file
+is the v0.3 roadmap.
+
+---
+
+## Known Limitations
+
+This system was adversarially reviewed by Gemini, Grok, and Mistral. Their
+findings are fully documented in `ATTACK_ANALYSIS.md`. The honest summary:
+
+**The system works best when:**
+- LLM sessions are the primary development mode, not occasional assistance
+- The team is small and disciplined, or solo
+- The project is greenfield or has a focused scope
+- At minimum a staleness-checker script runs in CI
+
+**The system's known structural weaknesses (v0.2):**
+
+*Maintenance tax* — updating islands on every change costs real velocity. v0.3
+will introduce tiered update obligations so not every change requires a full
+island update.
+
+*Propagation atomicity* — a cascade of updates across many islands can hit LLM
+output limits mid-way, leaving the graph in a contradictory state. v0.3 will
+add an in-progress propagation state and a cascade size threshold.
+
+*Hallucination fossilization* — LLMs fill in plausible-sounding values for
+subjective fields rather than using `?`. Once written, these become canonical.
+v0.3 will add explicit decision criteria for all subjective fields.
+
+*No native staleness detection* — without tooling that compares `last-verified`
+against file modification timestamps, stale islands look identical to fresh ones.
+This is a hard dependency on tooling, not discipline.
+
+*Constraint compliance gap* — an LLM reading a rule and an LLM following it are
+not the same thing. The system is advisory, not enforced. Generated code must be
+validated against architectural rules, not just hoped to comply.
+
+*Adversarial injection* — island content is trusted as ground truth. In
+multi-contributor or open-source contexts, malicious or accidental corruption of
+island files is a real threat. Security-sensitive islands need higher review gates.
+
+None of these are hidden or being ignored. They are the v0.3 agenda.
 
 ---
 
@@ -140,5 +191,22 @@ This is version 0.1 of the specification. The format is stable enough to use in 
 | File | Purpose |
 |------|---------|
 | `LLMISLAND_SPEC.md` | Full specification — read this before implementing |
-| `INSTALLATION_GUIDE.md` | Step-by-step guide for introducing the system to a project |
+| `LLM_BOOT.md` | Paste at the start of every LLM session — tells the LLM which boot mode to use |
+| `INSTALATION_GUIDE.md` | Step-by-step guide for introducing the system to a project |
+| `CONTRIBUTING.md` | How to contribute to the spec |
+| `ATTACK_ANALYSIS.md` | Adversarial review findings — known weaknesses and v0.3 roadmap |
 | `README.md` | This file |
+
+| Folder | Purpose |
+|--------|---------|
+| `MODES/` | Detailed instructions for each boot mode |
+| `SCENARIOS/` | Bootstrapping guides for greenfield, legacy, archaeological, and cross-language projects |
+| `EXAMPLES/` | Annotated example `.llmisland`, `.llmainland`, and `.llwasland` files |
+
+File types used in projects:
+
+| Extension | Purpose |
+|-----------|---------|
+| `.llmisland` | Semantic companion to a source file |
+| `.llmainland` | Architectural graph for the project (one file: `connections.llmainland`) |
+| `.llwasland` | Archive of historical decisions when an island's memory grows too large |
