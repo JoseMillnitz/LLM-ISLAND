@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2.8
+# LLM Island System — Specification v0.2.9
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -653,6 +653,7 @@ CONNECTION: renderer.js -> data.js
   direction:    presentation -> core
   strength:     high
   break-impact: renderer cannot draw any cells — total visual failure
+  cycle:        false
 
 CONNECTION: generator.js -> data.js
   uses:         SHAPES, cellRoom, roomDefs
@@ -660,6 +661,7 @@ CONNECTION: generator.js -> data.js
   direction:    core -> core
   strength:     critical
   break-impact: level generation fails completely — no puzzle can be created
+  cycle:        false
 
 CONNECTION: game.js -> generator.js
   uses:         LevelGenerator.generate()
@@ -667,14 +669,22 @@ CONNECTION: game.js -> generator.js
   direction:    orchestration -> core
   strength:     critical
   break-impact: new game fails — no new puzzles possible
+  cycle:        false
 
 CONNECTION: python_pipeline.py -> render_core.c
   uses:         render_frame(), init_context()
   why:          Python orchestration delegates frame rendering to C for performance
   direction:    bridge -> core
-  language-boundary: python -> c via ctypes
+  language-boundary:
+    from:              python
+    to:                c
+    mechanism:         ctypes
+    data-types:        [float array (frame buffer), int (context handle)]
+    error-semantics:   C returns -1 on error; Python raises RuntimeError
+    version-coupling:  render_core.so must match header version
   strength:     critical
   break-impact: all rendering fails
+  cycle:        false
 
 strength values:
   critical — system cannot function if broken
@@ -1595,6 +1605,124 @@ WHEN THERE ARE TOO MANY DECISIONS TO TRACK:
 
 ---
 
+## STRUCTURAL EDGE CASES
+
+Real codebases include monorepos, plugin systems, runtime-discovered
+dependencies, and circular references. The base format assumes none of
+these. This section extends it.
+
+### MONOREPOS
+
+The default is one mainland per project. Monorepos contain multiple
+projects. For monorepos, create `workspace.llmainland` at the repo root:
+
+```
+---WORKSPACE---
+repo:          my-monorepo
+sub-projects:
+  - path: packages/frontend
+    mainland: packages/frontend/connections.llmainland
+  - path: packages/backend
+    mainland: packages/backend/connections.llmainland
+  - path: packages/shared
+    mainland: packages/shared/connections.llmainland
+
+inter-project-connections:
+  - from: packages/frontend
+    to:   packages/shared
+    uses: [types.ts, utils.ts]
+    strength: critical
+  - from: packages/backend
+    to:   packages/shared
+    uses: [types.ts, validation.ts]
+    strength: critical
+```
+
+Each sub-project has its own mainland and islands. The workspace file
+declares only cross-project connections. An LLM working on a task reads
+only the relevant sub-project's mainland, plus any inter-project
+connections that involve files it will touch.
+
+### DYNAMIC DEPENDENCIES
+
+Some files have dependencies determined at runtime: dynamic imports, eval,
+plugin architectures, decorator-based registration, hot module replacement.
+
+For these files, add to the island HEADER:
+
+```
+dynamic-boundary: true
+dynamic-note:     plugins loaded via require(config.pluginPaths[i]) at startup;
+                  dependency graph is config-determined, not code-determined
+```
+
+For dynamic connections in the mainland:
+
+```
+CONNECTION: app.js -> (dynamic)
+  uses:         plugins loaded from config
+  why:          plugin architecture
+  direction:    orchestration -> ?
+  strength:     ?
+  break-impact: specific plugins fail to load — degraded but functional
+  dynamic:      true
+  dynamic-note: plugin set determined by runtime config; connections are
+                a superset of possible links, not actual links
+```
+
+Dynamic connections are not errors — they are honest uncertainty. They tell
+future sessions: "this part of the graph cannot be statically determined."
+
+### DEPENDENCY CYCLES
+
+Real codebases have cycles. The island system does not prohibit them — it
+requires them to be declared.
+
+For cyclic connections, set:
+
+```
+CONNECTION: A.js -> B.js
+  uses:       processData()
+  direction:  core -> core
+  strength:   high
+  cycle:      true
+  cycle-note: B calls back into A via event emitter on 'data-ready';
+              A processes and re-invokes B for next batch
+```
+
+A declared cycle is knowledge. An undeclared cycle is a surprise. Cycles
+are not inherently invalid, but they increase propagation risk and require
+extra care during refactors.
+
+### EXPANDED CROSS-LANGUAGE BOUNDARIES
+
+The `language-boundary` field as a single string (e.g., "python -> c via
+ctypes") is sufficient for simple FFI. For non-trivial cross-language
+contracts, use the expanded sub-section format:
+
+```
+language-boundary:
+  from:              python
+  to:                c
+  mechanism:         ctypes
+  data-types:        [float array (frame buffer), int (context handle)]
+  error-semantics:   C returns -1 on error; Python raises RuntimeError
+  version-coupling:  render_core.so must match header version
+```
+
+Sub-fields:
+  from / to:         source and target languages
+  mechanism:         how the boundary is crossed (ctypes, JNI, FFI, REST, gRPC)
+  data-types:        types crossing the boundary and their representations
+  error-semantics:   how errors propagate across the boundary
+  version-coupling:  whether the two sides must be version-matched
+
+The single-string format remains valid for simple boundaries. Use the
+expanded format when the boundary is architecturally significant or when
+data marshaling, error semantics, or version coupling are load-bearing.
+
+---
+
 ## CROSS-LANGUAGE PIPELINES
 
 The island system is language agnostic. These rules apply at language boundaries.
@@ -1728,6 +1856,19 @@ DO NOT do these things:
 ---
 
 ## VERSION HISTORY
+
+v0.2.9 — structural edge cases
+  STRUCTURAL EDGE CASES section added before CROSS-LANGUAGE PIPELINES
+    Monorepos: workspace.llmainland with sub-project declarations
+    Dynamic dependencies: dynamic-boundary + dynamic-note (island and connection)
+    Dependency cycles: cycle + cycle-note annotations on connections
+    Expanded cross-language boundaries: sub-section format with from, to,
+      mechanism, data-types, error-semantics, version-coupling
+  Example CONNECTIONS updated with cycle: false on each entry
+  python_pipeline.py -> render_core.c connection updated to use the
+    expanded language-boundary format
+  Addresses: ATTACK_ANALYSIS ISSUE-008 (Structural Edge Cases)
+  Source: Grok (#6)
 
 v0.2.8 — staleness detection as hard dependency
   STALENESS DETECTION section added after VALIDITY RULES
@@ -1888,4 +2029,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2.8
+END OF SPEC v0.2.9
