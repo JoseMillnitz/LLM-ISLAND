@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2.3
+# LLM Island System — Specification v0.2.4
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -367,6 +367,74 @@ fragility
 fragility-note
   Required when fragility is medium or high.
   One or two sentences. Why is it fragile? What specifically can go wrong?
+
+---
+
+## FIELD DECISION CRITERIA
+
+Subjective fields must be assessed using the criteria below, not by feel.
+These criteria exist to make assessments reproducible across sessions, models,
+and time. If you cannot satisfy the criteria for a given level, use the lower
+level or ?.
+
+### confidence
+
+  high    — human explicitly confirmed this field OR verified against test
+            evidence (e.g., a test asserts the behavior described)
+  medium  — inferred from call sites, test coverage, or observable behavior;
+            not confirmed by a human or definitive test
+  low     — inferred from code structure alone (naming, file location, imports)
+
+Note: confidence: high requires either human confirmation or test evidence.
+An LLM that has only read the code cannot set confidence: high — only medium
+at best. If you are uncertain, low is honest.
+
+### fragility
+
+  high    — a change here has broken something in this project before
+            OR the symbol is used in 5+ call sites with no type enforcement
+            OR the symbol crosses a language or system boundary
+  medium  — inferred risk from call-site complexity, effect breadth, or
+            implicit coupling (e.g., relies on shared mutable state)
+  low     — isolated, well-tested, no cross-file mutation, few callers
+
+Note: fragility: high based on "has broken before" requires evidence
+(a git reference, a HISTORICAL-DECISIONS entry, or a test that was added
+after the breakage). Without evidence, use medium.
+
+### severity (security surfaces)
+
+  critical — exploitable from untrusted input with no guard in place
+  high     — exploitable but guarded; guard is untested or partial
+  medium   — exploitable but guarded and tested
+  low      — theoretical attack surface; practical exploitation unlikely
+
+Note: severity reflects the current state, not the hypothetical worst case.
+A surface that is guarded and tested is medium even if the unguarded version
+would be critical.
+
+### strength (mainland connections)
+
+  critical — system cannot function if this connection breaks
+             (e.g., entry point to core logic, only data source)
+  high     — major feature loss if broken
+             (e.g., rendering pipeline, authentication flow)
+  medium   — degraded experience if broken
+             (e.g., caching layer, non-critical UI component)
+  low      — cosmetic or minor impact if broken
+             (e.g., logging, analytics, optional display enhancement)
+
+### break-impact (mainland connections)
+
+Not a severity level but a statement. Write what actually breaks, not how
+bad it is. Be specific:
+  Good: "renderer cannot draw any cells — total visual failure"
+  Bad:  "things break"
+  Good: "seed determinism lost — shared seeds produce different puzzles"
+  Bad:  "important feature affected"
+
+If you cannot describe the specific failure, write:
+  break-impact: ? (unable to determine specific failure mode)
 
 ---
 
@@ -1515,6 +1583,20 @@ DO NOT do these things:
 
 ## VERSION HISTORY
 
+v0.2.4 — decision criteria for subjective fields
+  FIELD DECISION CRITERIA section added between SYMBOLS and RISKS
+    Decision trees for confidence, fragility, severity, strength
+    break-impact guidance for specific vs. vague failure descriptions
+    Each criterion is evidence-based, not feel-based
+  Cross-session and cross-model consistency: two LLMs assessing the same
+    code should arrive at the same field values when applying these criteria
+  Note: confidence: high specifically requires human confirmation or test
+    evidence — an LLM that has only read the code can reach medium at best
+  Note: fragility: high based on prior breakage requires evidence (git ref,
+    HISTORICAL-DECISIONS entry, or test added after the breakage)
+  Addresses: ATTACK_ANALYSIS ISSUE-005 (Subjective Fields — No Decision Criteria)
+  Sources: Gemini (#3), Grok (#3, implicit)
+
 v0.2.3 — anti-hallucination mechanisms
   CORE PRINCIPLES: principle 8 added (UNCERTAINTY OVER PLAUSIBILITY)
     ? is the correct answer when evidence does not support a specific value
@@ -1604,4 +1686,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2.3
+END OF SPEC v0.2.4
