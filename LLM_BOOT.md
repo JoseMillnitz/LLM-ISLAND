@@ -11,6 +11,30 @@ Full spec: `LLMISLAND_SPEC.md` — read only when you need format details.
 
 ---
 
+## STEP 0 — IS A PROPAGATION CASCADE OPEN?
+
+Before anything else, check whether `.llmpropstts` exists at the project root.
+
+### YES — `.llmpropstts` exists
+
+A propagation cascade was interrupted mid-way. Some islands describe the
+old contract, others the new one. Resume this cascade BEFORE starting any
+new task — new work on top of a contradictory graph compounds inconsistency.
+
+  1. Read `.llmpropstts`. Note the `pending` list and the `origin`.
+  2. Update the pending islands (in any order). Mark each as `completed`
+     either via `python llmisland_tooling.py prop-done --island <file>`
+     or by editing `.llmpropstts` manually.
+  3. When all pending entries are resolved: delete `.llmpropstts`
+     (or run `llmisland_tooling prop-finish`).
+  4. Then continue to STEP 1.
+
+### NO — `.llmpropstts` does not exist
+
+No cascade is open. Continue to STEP 1.
+
+---
+
 ## STEP 1 — DO ISLANDS EXIST?
 
 Check if `connections.llmainland` exists at the project root.
