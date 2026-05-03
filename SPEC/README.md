@@ -16,10 +16,15 @@ common tasks to the right module.
 | [01_HEADER.md](01_HEADER.md) | `.llmisland` file structure and HEADER section field reference. |
 | [02_SYMBOLS.md](02_SYMBOLS.md) | SYMBOLS section field reference plus FIELD DECISION CRITERIA for subjective fields. |
 | [03_RISKS_MEMORY.md](03_RISKS_MEMORY.md) | RISKS and MEMORY sections (security, regression, platform, config; active constraints / historical / superseded). |
+| [04_MAINLAND.md](04_MAINLAND.md) | `connections.llmainland` format plus the SELECTIVE READ PROTOCOL. |
+| [05_VALIDITY.md](05_VALIDITY.md) | Validity rules, status progression, and the staleness detection obligation. |
+| [06_TIERS.md](06_TIERS.md) | Update tiers A/B/C and the tier determination decision tree. |
+| [07_PROPAGATION.md](07_PROPAGATION.md) | Propagation protocol and the `.llmpropstts` cascade state file. |
 
-More modules land in the v0.3-rc3 and v0.3-rc4 release candidates:
-mainland format, update tiers, propagation, validity, bootstrap, boot
-modes, edge cases, security gates, adoption, and the quick reference.
+More modules land in v0.3-rc4: bootstrap and boot modes, maintenance
+protocol, structural edge cases, cross-language pipelines, security
+review gates, adoption and sustainability, and the quick reference /
+anti-patterns block.
 
 ## Read order for new readers
 

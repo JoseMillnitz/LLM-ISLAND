@@ -7,6 +7,25 @@ recording the release that introduced them.
 
 ---
 
+## v0.3-rc3 — operational sections to SPEC/
+
+- 4 more modules extracted from `LLMISLAND_SPEC.md`:
+  - `SPEC/04_MAINLAND.md`     — MAINLAND FILE STRUCTURE + SELECTIVE READ PROTOCOL
+  - `SPEC/05_VALIDITY.md`     — VALIDITY RULES + STALENESS DETECTION + STATUS PROGRESSION
+  - `SPEC/06_TIERS.md`        — UPDATE TIERS (A/B/C)
+  - `SPEC/07_PROPAGATION.md`  — PROPAGATION PROTOCOL + PROPAGATION STATE AND RESUME
+  All under the 220-line target.
+- TOPIC TABLE in `LLMISLAND_SPEC.md` updated: 4 rows that previously
+  said "This file — <SECTION>" now point at the new SPEC/* modules.
+- `SPEC/README.md` directory router updated with rows 04-07.
+- Spec line count: 1472 → 953 (down 519).
+- Remaining in `LLMISLAND_SPEC.md`: bootstrap, boot modes, maintenance,
+  edge cases, cross-language, security gates, adoption, quick
+  reference, anti-patterns. These go into `SPEC/08_*` through
+  `SPEC/13_*` in rc4.
+
+---
+
 ## v0.3-rc2 — SPEC/ scaffolding + island format modules
 
 - `SPEC/` directory created with `SPEC/README.md` as the directory router.
