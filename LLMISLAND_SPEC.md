@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2.9
+# LLM Island System — Specification v0.2.10
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -267,10 +267,15 @@ last-verified
   Required when status is verified.
 
 maintained-by
-  One of: llm | human-reviewed | human-unreviewed
+  One of: llm | human-reviewed | human-unreviewed | security-reviewed
   human-unreviewed means a human edited this island and it has not yet been
   reviewed by an LLM. This is a temporary state — it must be resolved before
   the island is used as ground truth.
+  security-reviewed means this island has been reviewed by a human with
+  security expertise. Required for islands with severity >= high in the
+  RISKS section, or for islands bound to security-related contracts.
+  A code change to a security-reviewed island downgrades it to llm until
+  re-reviewed by the security reviewer.
 
 exports
   All public symbols this file exposes. One per line.
@@ -1543,6 +1548,18 @@ RULE 9: Post-generation constraint compliance check.
   are close enough, and that assumption is structurally wrong without an
   explicit verification step.
 
+RULE 10: Security-sensitive islands require a higher trust gate.
+  If a task touches a security surface with severity high or critical, or
+  a file bound to a security-related contract, do not treat a normal
+  island as sufficient authority unless `maintained-by: security-reviewed`.
+  If the gate is not met:
+  - Do not generate code that depends on the island's RISKS or
+    ACTIVE-CONSTRAINTS as ground truth.
+  - Surface to the human: "this island touches a high-severity security
+    surface but is not security-reviewed. I need either security review
+    confirmation or independent verification before proceeding."
+  See SECURITY REVIEW GATES section for the full gate criteria.
+
 ---
 
 ## MANAGING MEMORY OVER TIME
@@ -1602,6 +1619,58 @@ WHEN THERE ARE TOO MANY DECISIONS TO TRACK:
             replaced-by: see renderer.js.llwasland
             superseded-date: 2026-03-01
             keep-because: archived to llwasland — not deleted
+
+---
+
+## SECURITY REVIEW GATES
+
+Islands and the mainland describe exactly where load-bearing invariants live
+and what security trade-offs were made. This information is valuable context
+AND a potential attack surface.
+
+### WHEN SECURITY REVIEW IS REQUIRED
+
+An island requires `maintained-by: security-reviewed` when:
+  - The RISKS section contains `severity: high` or `severity: critical`
+  - The island is bound to a security-related mainland CONTRACT
+  - The file handles authentication, authorization, encryption, or
+    user-supplied input parsing
+
+An island may have `maintained-by: llm` or `human-reviewed` when:
+  - No security surfaces are declared
+  - All security surfaces have `severity: low` or `medium` with tested guards
+
+A code change to a `security-reviewed` island downgrades `maintained-by` back
+to `llm` until the security reviewer re-confirms the island.
+
+### ADVERSARIAL INJECTION WARNING
+
+Island content is trusted by the LLM as ground truth. In multi-contributor
+or open-source projects, adversarial editing of islands is a real threat.
+
+A malicious actor (or compromised LLM session) could:
+  - Claim a vulnerable function is safe via a false RISKS entry
+  - Add a false HISTORICAL-DECISIONS entry redirecting development
+  - Weaken an ACTIVE-CONSTRAINTS entry to permit an insecure pattern
+
+The more authoritative islands become, the more valuable they are as an
+injection target. Mitigation: for security-sensitive projects, island edits
+to security-related files should go through the same review process as
+code changes. The `maintained-by: security-reviewed` status is the minimum
+signal that this review has occurred.
+
+### OPEN-SOURCE PROJECTS
+
+For open-source or broad-access projects, consider what island content
+should be public vs. private:
+  - SYMBOLS, HEADER, CONNECTIONS: generally safe to publish
+  - Detailed security trade-off history in HISTORICAL-DECISIONS may expose
+    vulnerability reasoning that aids attackers
+  - ACTIVE-CONSTRAINTS about security workarounds: evaluate case by case
+
+The spec does not require hiding islands. It requires awareness that
+islands in security-critical areas are both the most valuable and the
+most sensitive documentation in the project.
 
 ---
 
@@ -1857,6 +1926,21 @@ DO NOT do these things:
 
 ## VERSION HISTORY
 
+v0.2.10 — security review gates
+  security-reviewed value added to maintained-by enum
+    Required for islands with severity >= high in RISKS section
+    Required for islands bound to security-related contracts
+    A code change to a security-reviewed island downgrades it to llm
+      until the security reviewer re-confirms
+  SECURITY REVIEW GATES section added before STRUCTURAL EDGE CASES
+    When security review is required vs. optional
+    Adversarial injection warning for multi-contributor projects
+    Open-source guidance for sensitive island content
+  RULE 10 added to MAINTENANCE PROTOCOL: security-sensitive trust gate
+    Tasks touching high/critical surfaces require security-reviewed islands
+  Addresses: ATTACK_ANALYSIS ISSUE-012 (Security as Attack Surface)
+  Source: Mistral (#6)
+
 v0.2.9 — structural edge cases
   STRUCTURAL EDGE CASES section added before CROSS-LANGUAGE PIPELINES
     Monorepos: workspace.llmainland with sub-project declarations
@@ -2029,4 +2113,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2.9
+END OF SPEC v0.2.10
