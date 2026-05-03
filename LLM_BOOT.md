@@ -55,6 +55,27 @@ See `LLMISLAND_SPEC.md` → STALENESS DETECTION for the full obligation.
 
 ---
 
+## STEP 0C — ARE THERE HUMAN-UNREVIEWED ISLANDS?
+
+Before starting any task, scan for islands with `maintained-by: human-unreviewed`.
+
+If any exist AND any of them describe a file the declared task will touch:
+  Review them BEFORE the declared task. A human edit may have introduced
+  inconsistencies that, if unreviewed, get baked into your work. Confirm
+  the edit matches what an LLM expects, then either:
+  - set `maintained-by: human-reviewed` (or `llm` if you also updated it), or
+  - flag the inconsistency to the human and stop until it is resolved.
+
+If unreviewed islands exist but none touch the current task:
+  Note them in your reply ("N islands are human-unreviewed; I am proceeding
+  with the declared task") and review them opportunistically when nearby work
+  surfaces them.
+
+This implements MAINTENANCE PROTOCOL RULE 6 — a `human-unreviewed` island
+is a temporary state, not a permanent one.
+
+---
+
 ## STEP 1 — DO ISLANDS EXIST?
 
 Check if `connections.llmainland` exists at the project root.

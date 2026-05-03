@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2.11
+# LLM Island System — Specification v0.2.12
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -1520,6 +1520,11 @@ RULE 6: Human edits require LLM review before the island is trusted.
   human-unreviewed. The next LLM session must review the edit, confirm it
   matches what an LLM expects, and either accept it (setting maintained-by
   back to llm or human-reviewed) or flag inconsistencies to the human.
+  The review obligation is at SESSION START, not after task completion.
+  If a human-unreviewed island describes a file the current task will
+  touch, the LLM must review it BEFORE generating any code on top of it.
+  The review-after-the-fact pattern bakes potential inconsistencies into
+  the work. See LLM_BOOT.md STEP 0C.
 
 RULE 7: Question discipline — do not ask more than necessary.
   Before asking the human anything, apply this filter:
@@ -1944,6 +1949,16 @@ DO NOT do these things:
 
 ## VERSION HISTORY
 
+v0.2.12 — human-LLM handoff protocol
+  LLM_BOOT.md: STEP 0C added — review human-unreviewed islands BEFORE
+    starting any task that would touch the same file
+  RULE 6 in MAINTENANCE PROTOCOL clarified
+    Review obligation is at session start, not after task completion
+    Cross-references LLM_BOOT.md STEP 0C
+  Closes the gap where review-after-the-fact bakes inconsistencies into work
+  Addresses: ATTACK_ANALYSIS ISSUE-011 (Human-LLM Handoff Rot)
+  Source: Grok (#7)
+
 v0.2.11 — archaeological confidence decay
   confidence-review-due field added to island HEADER (optional)
     Format: <version> or <date>
@@ -2145,4 +2160,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2.11
+END OF SPEC v0.2.12
