@@ -10,18 +10,39 @@ Stop as soon as the task can be completed safely.
 
 ---
 
+## CHANGE TIERS
+
+Before maintenance work, classify the change:
+
+- Tier A — internal logic only; exports, effects, and mainland connections stay the same
+- Tier B — exported behavior or effects changed; signature and connections stay the same
+- Tier C — signature, connection, contract, or architectural binding changed
+
+If unsure, choose the higher tier. New features are Tier C by default.
+
+See `LLMISLAND_SPEC.md` → UPDATE TIERS for the full rules.
+
+---
+
 ## TASK TYPE: MAINTENANCE (bug fix, improvement, refactor)
 
 1. Read `connections.llmainland` if not already read this session.
 2. Identify which files the task touches.
-3. For each file: read its `.llmisland`. If none exists, create one now (shallow is fine).
-4. Read ACTIVE-CONSTRAINTS for all touched files.
-5. Check if the task affects any mainland CONTRACTS.
-6. Read only those source files. Do not open unrelated files.
-7. Complete the task.
-8. Update islands for every file touched.
-9. If any connection changed: update `connections.llmainland`.
-10. If mainland changed: flag any bound islands that may now be stale.
+3. Classify the intended change for each touched file as Tier A, B, or C.
+4. For each file: read its `.llmisland`. If none exists, create one now (shallow is fine).
+5. Read ACTIVE-CONSTRAINTS for all touched files.
+6. Check if the task affects any mainland CONTRACTS.
+7. Read only those source files. Do not open unrelated files.
+8. Complete the task.
+9. Apply the required tier honestly:
+   - Tier A → update `last-verified` only (the rest of the island stays as-is).
+   - Tier B → update affected SYMBOL entries and `last-verified`.
+   - Tier C → full island review and `connections.llmainland` updates as needed.
+10. If a required higher-tier update cannot be completed honestly now:
+    downgrade the island to `status: partial` rather than pretending it is
+    current at a higher tier.
+11. If any connection changed: update `connections.llmainland`.
+12. If mainland changed: flag any bound islands that may now be stale.
 
 ---
 
@@ -126,9 +147,10 @@ Reading 40 files for a 2-file task is a failure mode, not thoroughness.
 
 ## WHEN DONE
 
-- [ ] All touched files have updated islands
+- [ ] Correct tier applied for every touched file
 - [ ] `last-verified` updated on all changed islands
 - [ ] Mainland updated if any connection changed
 - [ ] New contracts declared if the feature introduced new load-bearing invariants
 - [ ] Stale islands flagged if mainland changed
+- [ ] Any incomplete higher-tier update was downgraded honestly to `status: partial`
 - [ ] No island left with `maintained-by: human-unreviewed` from this session

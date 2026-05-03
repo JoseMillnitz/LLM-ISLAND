@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2
+# LLM Island System — Specification v0.2.1
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -630,6 +630,15 @@ An island is INVALID if any of the following are true:
 - maintained-by is human-unreviewed and more than one task cycle has passed
 - A SYMBOL entry for a test file is missing business-rule
 
+An island with a TIERED UPDATE (see UPDATE TIERS) is VALID if:
+- The update tier matches the actual change scope (Tier A, B, or C)
+- All fields required by that tier are updated
+- Fields outside the tier's scope are unchanged (not deleted, not guessed)
+- last-verified is updated regardless of tier
+
+A tiered update is a first-class valid outcome, not a shortcut. The system
+explicitly permits narrow updates when the change scope is narrow.
+
 An island is STALE if:
 - The source file has been modified since last-verified
 - A mainland connection referencing this island has changed without a
@@ -659,17 +668,112 @@ The mainland is INVALID if:
 
 ---
 
+## UPDATE TIERS
+
+Not every code change requires a full island rewrite. The update obligation is
+proportional to the change scope. Determine the tier before updating.
+
+### TIER DETERMINATION
+
+Ask these questions in order. Stop at the first YES.
+
+  1. Did a function signature, export list, import list, or mainland connection
+     change?
+     → YES: Tier C (full update)
+
+  2. Did the observable behavior, effects, or return semantics of any exported
+     symbol change — even if the signature is the same?
+     → YES: Tier B (symbol update)
+
+  3. Is this an internal-only change — refactoring, bug fix, performance
+     improvement — where exports, effects, and connections are unchanged?
+     → YES: Tier A (timestamp update)
+
+If uncertain which tier applies, choose the higher tier. Upgrading from A to B
+is always safe. Downgrading from C to A risks silent staleness.
+
+### TIER A — INTERNAL LOGIC ONLY
+
+The change does not affect any exported symbol's signature, behavior, effects,
+or any connection in the mainland.
+
+Required updates:
+  - last-verified → current version/date
+  - status → verified (if it was stale)
+
+Optional updates:
+  - fragility-note, if the internal change resolves or introduces fragility
+  - MEMORY entries, if the change resolves an active constraint or records a
+    decision worth preserving
+
+NOT required:
+  - SYMBOLS section rewrite
+  - Mainland connection updates
+  - Downstream island checks
+
+Examples:
+  - Bug fix in internal helper, no change to exports
+  - Performance optimization that does not change effects or return values
+  - Refactoring internal variable names
+
+### TIER B — EXPORT BEHAVIOR CHANGED
+
+An exported symbol's behavior, effects, or return semantics changed, but the
+function signatures and connection graph are the same.
+
+Required updates:
+  - last-verified → current version/date
+  - status → verified
+  - SYMBOLS section: update the affected symbol(s) only
+  - RISKS section: update if the behavior change affects security or
+    regression surfaces
+
+NOT required:
+  - Full island rewrite (untouched symbols stay as-is)
+  - Mainland connection updates (graph unchanged)
+
+Required propagation:
+  - Check all called-by entries for the changed symbol
+  - If a caller depends on the old behavior: update that caller's island
+
+### TIER C — FULL UPDATE
+
+Signatures, export lists, import lists, or mainland connections changed.
+
+Required updates:
+  - last-verified → current version/date
+  - status → verified
+  - Full island review: HEADER (exports, imports, depends-on), SYMBOLS, RISKS
+  - Mainland: update affected CONNECTIONS
+  - Mainland: check affected CONTRACTS
+  - Downstream islands: update depends-on and called-by in all affected islands
+  - MEMORY: record the change if it is architecturally significant
+
+### WHEN A FULL UPDATE CANNOT BE COMPLETED HONESTLY
+
+If a Tier C change is required but time pressure prevents a complete update:
+  - Update what you can.
+  - Set status: partial on the island — this is honest.
+  - Do NOT set status: verified on an incomplete update.
+  - A partial island is valid. A verified-but-wrong island is a lie.
+
+A tiered update is a first-class valid outcome, not a shortcut. The system
+explicitly permits narrow updates when the change scope is narrow.
+
+---
+
 ## PROPAGATION PROTOCOL
 
 This is the discipline that keeps the system accurate over time.
 
 WHEN CODE CHANGES:
-  1. Update the island for the changed file
-  2. Update last-verified to current version/date
-  3. Check if any exports changed signature, behavior, or effects
-  4. If yes: check all depends-on entries and update their islands
-  5. If a connection in the mainland is affected: update the connection
-  6. If a contract is affected: update the contract and notify all islands-bound
+  1. Determine the update tier (Tier A, B, or C — see UPDATE TIERS above)
+  2. Apply the minimum required update for that tier
+  3. Update last-verified to current version/date (all tiers)
+  4. If Tier B or C: check if any exports changed signature, behavior, or effects
+  5. If yes: check all depends-on entries and update their islands
+  6. If a connection in the mainland is affected: update the connection (Tier C)
+  7. If a contract is affected: update the contract and notify all islands-bound
 
 WHEN MAINLAND CHANGES:
   1. A mainland change is a signal — something architectural shifted
@@ -1037,9 +1141,15 @@ as verified after inferences are promoted.
 The island system only works if it is maintained. These rules make maintenance
 automatic rather than a separate task:
 
-RULE 1: Island update is part of task completion, not separate from it.
-  A task that modifies a file is not complete until its island is updated.
-  "Done" means: code works + tests pass + island is current.
+RULE 1: Island update scope is proportional to change scope.
+  A task that modifies a file is not complete until its island is updated —
+  but the depth of update depends on the tier (see UPDATE TIERS).
+  Tier A changes require only a last-verified timestamp update.
+  Tier B changes require updating affected SYMBOLS entries.
+  Tier C changes require a full island and mainland update.
+  "Done" means: code works + tests pass + island is current at the correct tier.
+  A Tier A update on an internal-only change is a complete, valid update —
+  not a shortcut, not technical debt, not something to feel guilty about.
 
 RULE 2: Stale islands must be flagged before use.
   If an island is stale, the LLM states this before acting on its content.
@@ -1278,6 +1388,23 @@ DO NOT do these things:
 
 ## VERSION HISTORY
 
+v0.2.1 — tiered update obligations
+  UPDATE TIERS section added before PROPAGATION PROTOCOL
+    Tier A (internal logic only) → update last-verified only
+    Tier B (export behavior changed) → update affected SYMBOLS
+    Tier C (signature/connection/contract changed) → full update + mainland
+  Tier determination decision tree (3 ordered questions)
+  RULE 1 in MAINTENANCE PROTOCOL rewritten to reference tiers
+    Tier A updates declared as first-class valid outcomes, not shortcuts
+  VALIDITY RULES updated: tiered updates are valid when tier matches scope
+  PROPAGATION PROTOCOL step 1 now starts with tier determination
+  "When a full update cannot be completed honestly" subsection added
+    status: partial as the honest alternative to verified-but-wrong
+  MODE_INCREMENTAL.md: maintenance flow updated for tier classification;
+    WHEN DONE checklist updated for tier-based completion
+  Addresses: ATTACK_ANALYSIS ISSUE-001 (Maintenance Tax)
+  Sources: Gemini (#5), Grok (#1), Mistral (#1, #8)
+
 v0.2 — boot modes, session continuity, question discipline, .llwasland
   Boot modes added: Incremental (default), Connection-First, Full Mapping
   Task type branching in Mode 1: maintenance vs new feature flow
@@ -1318,4 +1445,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2
+END OF SPEC v0.2.1
