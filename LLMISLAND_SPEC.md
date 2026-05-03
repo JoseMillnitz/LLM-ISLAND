@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2.7
+# LLM Island System — Specification v0.2.8
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -804,6 +804,51 @@ An island is STALE if:
 
 STALE islands are treated as HYPOTHESIS, not ground truth.
 The LLM must flag staleness before acting on the island's content.
+
+---
+
+## STALENESS DETECTION
+
+The spec defines staleness but the LLM cannot detect it on its own. An LLM
+cannot compare `last-verified` against filesystem modification timestamps
+without tooling. This section declares the detection obligation explicitly.
+
+STALENESS DETECTION OBLIGATION:
+  Any project where humans edit files outside of LLM sessions MUST have a
+  staleness detection mechanism. This is a hard dependency, not a nice-to-have.
+
+  Minimum viable detection: a script or CI hook that compares `last-verified`
+  dates in all `.llmisland` files against the modification timestamps of their
+  source files. Any mismatch is a staleness signal.
+
+  Acceptable mechanisms:
+    - A script run before each LLM session
+      (`python llmisland_tooling.py check-stale .`)
+    - A CI hook that blocks merges with stale islands
+    - An editor plugin that flags stale islands on save
+    - The LLM itself, if it has filesystem access and can read timestamps
+
+WHEN THE LLM HAS FILESYSTEM ACCESS:
+  Before reading any island, the LLM should verify that the source file's
+  modification date is not newer than the island's `last-verified` date.
+  If it is newer: treat the island as STALE, regardless of its `status` field.
+  Flag the staleness to the human before proceeding.
+
+WHEN THE LLM DOES NOT HAVE FILESYSTEM ACCESS:
+  The human (or CI) must run the staleness checker before starting the LLM
+  session. If no checker was run, the LLM should ask: "Have you verified that
+  islands are current? If not, I will treat all islands as HYPOTHESIS."
+
+WHEN NO CHECKER EXISTS:
+  If the project has no staleness detection mechanism and humans edit files
+  directly, all islands are HYPOTHESIS by default. The LLM should state this
+  at the start of the session:
+  "No staleness checker is configured. I will verify any island I use against
+  the actual source file before relying on it."
+
+  In this mode: treat declared `confidence: high` as operationally `medium` and
+  `confidence: medium` as operationally `low`. The format does not override
+  missing infrastructure.
 
 The mainland is INVALID if:
 - Any CONNECTION references a file that has no island
@@ -1684,6 +1729,21 @@ DO NOT do these things:
 
 ## VERSION HISTORY
 
+v0.2.8 — staleness detection as hard dependency
+  STALENESS DETECTION section added after VALIDITY RULES
+    Hard dependency: a staleness checker is required for projects where
+      humans edit files outside LLM sessions
+    Acceptable mechanisms: pre-session script, CI hook, editor plugin,
+      LLM with filesystem access
+    LLM with filesystem access: verify timestamps before trusting islands
+    LLM without filesystem access: require human-run checker first
+    No checker fallback: degraded-trust mode — confidence: high reads as
+      medium, confidence: medium reads as low
+  LLM_BOOT.md: STEP 0B added — staleness check before STEP 1
+  Aligns with the future llmisland_tooling.py check-stale subcommand
+  Addresses: ATTACK_ANALYSIS ISSUE-004 (Stale Island Detection)
+  Sources: Gemini (#4), Grok (#2, #10), Mistral (#1)
+
 v0.2.7 — constraint compliance verification
   RULE 9 added to MAINTENANCE PROTOCOL: post-generation compliance check
     Re-read architectural-rules after generating code
@@ -1828,4 +1888,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2.7
+END OF SPEC v0.2.8

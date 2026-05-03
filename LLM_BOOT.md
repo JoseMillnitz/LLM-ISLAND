@@ -27,11 +27,31 @@ new task — new work on top of a contradictory graph compounds inconsistency.
      or by editing `.llmpropstts` manually.
   3. When all pending entries are resolved: delete `.llmpropstts`
      (or run `llmisland_tooling prop-finish`).
-  4. Then continue to STEP 1.
+  4. Then continue to STEP 0B.
 
 ### NO — `.llmpropstts` does not exist
 
-No cascade is open. Continue to STEP 1.
+No cascade is open. Continue to STEP 0B.
+
+---
+
+## STEP 0B — IS STALENESS CHECKED?
+
+If you have filesystem access:
+  Run `python llmisland_tooling.py check-stale .` (or compare `last-verified`
+  dates against source file modification times manually). Any island flagged
+  STALE must be treated as HYPOTHESIS, not ground truth, until reviewed.
+
+If you do not have filesystem access:
+  Ask the human: "Have you verified that islands are current? If not, I will
+  treat all islands as HYPOTHESIS."
+
+If no checker exists in the project:
+  Operate in degraded-trust mode: treat declared `confidence: high` as
+  operationally `medium`, and `confidence: medium` as `low`. State this
+  explicitly at session start.
+
+See `LLMISLAND_SPEC.md` → STALENESS DETECTION for the full obligation.
 
 ---
 
