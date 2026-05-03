@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2.4
+# LLM Island System — Specification v0.2.5
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -709,6 +709,44 @@ SUPERSEDED:
 
 ---
 
+## SELECTIVE READ PROTOCOL (MAINLAND)
+
+On small projects, reading the entire mainland at session start is free. On
+large projects with hundreds of files, it is catastrophically expensive —
+consuming context before any source code is touched.
+
+The mainland has an internal read-priority structure. Follow this protocol.
+
+### ALWAYS READ (before any task)
+
+  - ARCHITECTURE section: project, version, bootstrap-mode
+  - architectural-rules — must not be violated by your changes
+  - ACTIVE-CONSTRAINTS in ARCHITECTURE-MEMORY — read before touching anything
+
+### READ FOR TOUCHED FILES (after identifying which files the task involves)
+
+  - CONTRACTS where islands-bound includes any file you will touch
+  - CONNECTIONS entries where either endpoint is a file you will touch
+
+### SKIP BY DEFAULT (read only when investigating)
+
+  - HISTORICAL-DECISIONS in ARCHITECTURE-MEMORY — read only when investigating
+    a bug or understanding why a design decision was made
+  - SUPERSEDED in ARCHITECTURE-MEMORY — read only for archaeological context
+  - CONNECTIONS entries for files unrelated to the current task
+
+### NOTE ON SPLITTING THE MAINLAND
+
+The mainland stays in one file. Do not split it into a `.history` companion
+file even at large scale. The selective read protocol above solves the
+reading cost without splitting. A separate history file creates a different
+problem: an LLM managing a large project may archive load-bearing decisions
+that simply have not been referenced recently, making them invisible.
+Invisible means forgotten. The read protocol controls what gets read; it
+does not need to control what exists.
+
+---
+
 ## VALIDITY RULES
 
 An island is INVALID if any of the following are true:
@@ -1336,10 +1374,14 @@ RULE 2: Stale islands must be flagged before use.
   The LLM may use a stale island as a starting hypothesis but must verify
   the relevant sections before trusting them.
 
-RULE 3: The mainland is checked at the start of every task.
-  Before touching any file, read the mainland. Understand the architectural
-  context. Check if the task involves any contracts. Check the active
-  constraints for all files that will be touched.
+RULE 3: The mainland is read selectively at the start of every task.
+  Before touching any file, follow the SELECTIVE READ PROTOCOL (see above).
+  Always read: architectural-rules, ACTIVE-CONSTRAINTS, ARCHITECTURE basics.
+  Then read CONTRACTS and CONNECTIONS only for files the task will touch.
+  Skip HISTORICAL-DECISIONS and SUPERSEDED unless investigating a bug or
+  understanding a past design decision.
+  Do not read the whole mainland by reflex — on a large project, this
+  consumes context before any source code is read.
 
 RULE 4: Active constraints are reviewed when updating an island.
   When updating an island, verify that all ACTIVE-CONSTRAINTS still apply.
@@ -1583,6 +1625,19 @@ DO NOT do these things:
 
 ## VERSION HISTORY
 
+v0.2.5 — mainland selective read protocol
+  SELECTIVE READ PROTOCOL section added between MAINLAND FILE STRUCTURE
+    and VALIDITY RULES
+    Always-read tier: architectural-rules, ACTIVE-CONSTRAINTS, basics
+    Per-file tier: CONTRACTS and CONNECTIONS for touched files only
+    Skip-by-default tier: HISTORICAL-DECISIONS, SUPERSEDED, unrelated CONNECTIONS
+  Explicit guidance against splitting the mainland into a .history file —
+    selective reads solve the cost; splitting risks invisible memory
+  RULE 3 in MAINTENANCE PROTOCOL rewritten for selective reading
+  LLM_BOOT.md STEP 1 updated to use the protocol instead of "read it now"
+  Addresses: ATTACK_ANALYSIS ISSUE-006 (Context Window / Mainland Bloat)
+  Sources: Gemini (#1), Grok (#4), Mistral (#2)
+
 v0.2.4 — decision criteria for subjective fields
   FIELD DECISION CRITERIA section added between SYMBOLS and RISKS
     Decision trees for confidence, fragility, severity, strength
@@ -1686,4 +1741,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2.4
+END OF SPEC v0.2.5

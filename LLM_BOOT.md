@@ -41,11 +41,21 @@ Check if `connections.llmainland` exists at the project root.
 
 ### YES — mainland exists
 
-Read it now. Note:
-- `bootstrap-mode` field — tells you the epistemic history of this project's islands
+Use the SELECTIVE READ PROTOCOL (see `LLMISLAND_SPEC.md`). Do not read the
+mainland in full by reflex.
+
+Always read first:
+- `bootstrap-mode` — epistemic history of this project's islands
 - `architectural-rules` — must not be violated by your changes
 - `ACTIVE-CONSTRAINTS` in ARCHITECTURE-MEMORY — read before touching anything
-- Any `CONTRACTS` relevant to files you will touch
+
+After identifying which files the task touches:
+- `CONTRACTS` whose `islands-bound` includes any of those files
+- `CONNECTIONS` entries where either endpoint is one of those files
+
+Skip by default (read only when investigating):
+- `HISTORICAL-DECISIONS` and `SUPERSEDED` in ARCHITECTURE-MEMORY
+- `CONNECTIONS` entries for files unrelated to the current task
 
 Then go to STEP 2.
 
