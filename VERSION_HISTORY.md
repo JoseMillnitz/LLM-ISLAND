@@ -7,6 +7,23 @@ recording the release that introduced them.
 
 ---
 
+## v0.3-rc2 — SPEC/ scaffolding + island format modules
+
+- `SPEC/` directory created with `SPEC/README.md` as the directory router.
+- 4 island-format modules extracted from `LLMISLAND_SPEC.md`:
+  - `SPEC/00_OVERVIEW.md`     — CORE PRINCIPLES + FILE NAMING
+  - `SPEC/01_HEADER.md`       — ISLAND FILE STRUCTURE + Section 1: HEADER
+  - `SPEC/02_SYMBOLS.md`      — Section 2: SYMBOLS + FIELD DECISION CRITERIA
+  - `SPEC/03_RISKS_MEMORY.md` — Section 3: RISKS + Section 4: MEMORY
+- `LLMISLAND_SPEC.md` becomes more router-like: TOPIC TABLE at the top
+  pointing readers to either `SPEC/*` modules or remaining in-file
+  sections. The remaining sections (mainland, tiers, propagation,
+  validity, bootstrap, maintenance, edge cases, security, adoption,
+  reference) are still in this file; they move out in rc3 and rc4.
+- Spec line count: 2007 → ~1465 (with the new TOPIC TABLE block added).
+
+---
+
 ## v0.3-rc1 — strip non-spec content
 
 - Narrative preamble (intellectual origin, mid-term framing, why this
