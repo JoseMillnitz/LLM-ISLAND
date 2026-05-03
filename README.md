@@ -133,56 +133,66 @@ It aligns naturally with Extreme Programming: collective code ownership becomes 
 
 ## Status
 
-This is version **0.2** of the specification. Changes from v0.1: three boot modes
-added (Incremental, Connection-First, Full Mapping), Minimum Viable Mainland
-template, confidence-gated expansion rules, stop-early rule, `.llwasland` archive
-format replacing `.llmhistory`. See `LLMISLAND_SPEC.md` for the full specification,
-validity rules, status progression model, and bootstrapping guides.
+The current spec is **v0.3-rc1** — the first of a small chain of release
+candidates that progressively deliver v0.3.
 
-**v0.3 is in planning.** The spec was stress-tested by three LLMs asked to attack
-its weaknesses. Their responses are cataloged in `ATTACK_ANALYSIS.md`. That file
-is the v0.3 roadmap.
+The big shifts since v0.2:
+- 14 issues from adversarial review (Gemini / Grok / Mistral) resolved across
+  v0.2.1 through v0.2.14.
+- Tiered update obligations (Tier A/B/C) replace the all-or-nothing rule.
+- Propagation cascades are tracked in a separate `.llmpropstts` file
+  managed by `llmisland_tooling.py`, not in the mainland.
+- `generation-pass`, `read-reason`, `runtime-dependencies`,
+  `confidence-review-due`, `dynamic-boundary`, `cycle`,
+  `self-checkable` (architectural-rules), `condition` (CONTRACTS),
+  `security-reviewed` (maintained-by) added.
+- Two new core principles: UNCERTAINTY OVER PLAUSIBILITY and
+  DETECTABLE FAILURE.
+- File-size discipline (~200 / ~300 / 400+) added to `CONTRIBUTING.md`.
+
+Read `VERSION_HISTORY.md` for the dated changelog of every release.
+
+**Remaining v0.3 work** (release candidate chain):
+- v0.3-rc2: split `LLMISLAND_SPEC.md` into modular `SPEC/` files
+  (island format modules)
+- v0.3-rc3: operational sections to `SPEC/` (mainland, tiers, propagation, validity)
+- v0.3-rc4: remaining sections to `SPEC/`
+- v0.3 final: router cleanup + cross-reference updates + tag
 
 ---
 
 ## Known Limitations
 
-This system was adversarially reviewed by Gemini, Grok, and Mistral. Their
-findings are fully documented in `ATTACK_ANALYSIS.md`. The honest summary:
+The system was adversarially reviewed by Gemini, Grok, and Mistral during
+the v0.2 cycle. All 14 cataloged issues were resolved across v0.2.1 → v0.2.14
+(the resolutions are recorded in `VERSION_HISTORY.md`). The remaining
+limitations are not unsolved problems — they are intentional scope:
 
 **The system works best when:**
 - LLM sessions are the primary development mode, not occasional assistance
 - The team is small and disciplined, or solo
 - The project is greenfield or has a focused scope
-- At minimum a staleness-checker script runs in CI
+- A staleness checker (e.g. `llmisland_tooling.py check-stale`) runs before
+  every LLM session
 
-**The system's known structural weaknesses (v0.2):**
+**The system is a mid-term solution.** The long-term answer is a programming
+language or IR natively designed for LLM authorship, where dependency graphs,
+effect declarations, provenance, and formal contracts are language primitives.
+Until that exists in production-ready form, this companion-file layer
+approximates it. Island files are designed to be a migration path, not a
+dead end.
 
-*Maintenance tax* — updating islands on every change costs real velocity. v0.3
-will introduce tiered update obligations so not every change requires a full
-island update.
+**What is not yet automated.** The spec calls for tooling at several
+points (staleness check, propagation cascade tracking, rule validation,
+confidence decay, context routing). The reference implementation is
+`llmisland_tooling.py` — built in the next phase. Until it lands, manual
+fallbacks are documented in the spec for every tool-dependent behavior.
 
-*Propagation atomicity* — a cascade of updates across many islands can hit LLM
-output limits mid-way, leaving the graph in a contradictory state. v0.3 will
-add an in-progress propagation state and a cascade size threshold.
-
-*Hallucination fossilization* — LLMs fill in plausible-sounding values for
-subjective fields rather than using `?`. Once written, these become canonical.
-v0.3 will add explicit decision criteria for all subjective fields.
-
-*No native staleness detection* — without tooling that compares `last-verified`
-against file modification timestamps, stale islands look identical to fresh ones.
-This is a hard dependency on tooling, not discipline.
-
-*Constraint compliance gap* — an LLM reading a rule and an LLM following it are
-not the same thing. The system is advisory, not enforced. Generated code must be
-validated against architectural rules, not just hoped to comply.
-
-*Adversarial injection* — island content is trusted as ground truth. In
-multi-contributor or open-source contexts, malicious or accidental corruption of
-island files is a real threat. Security-sensitive islands need higher review gates.
-
-None of these are hidden or being ignored. They are the v0.3 agenda.
+**Acknowledged philosophical concern (ISSUE-010, the "mid-term trap").**
+By making the workaround viable, the system may delay urgency to build the
+real solution. This is acknowledged, not resolved. Contributions that
+explicitly connect island fields to native primitives in a future LLM-first
+language are welcome.
 
 ---
 
@@ -190,11 +200,11 @@ None of these are hidden or being ignored. They are the v0.3 agenda.
 
 | File | Purpose |
 |------|---------|
-| `LLMISLAND_SPEC.md` | Full specification — read this before implementing |
+| `LLMISLAND_SPEC.md` | The normative specification — read this before implementing |
+| `VERSION_HISTORY.md` | Dated changelog: every release with rationale and source attribution |
 | `LLM_BOOT.md` | Paste at the start of every LLM session — tells the LLM which boot mode to use |
 | `INSTALATION_GUIDE.md` | Step-by-step guide for introducing the system to a project |
-| `CONTRIBUTING.md` | How to contribute to the spec |
-| `ATTACK_ANALYSIS.md` | Adversarial review findings — known weaknesses and v0.3 roadmap |
+| `CONTRIBUTING.md` | How to contribute to the spec, plus file-size discipline |
 | `README.md` | This file |
 
 | Folder | Purpose |
