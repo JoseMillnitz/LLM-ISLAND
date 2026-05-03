@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2.5
+# LLM Island System — Specification v0.2.6
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -124,6 +124,14 @@ It IS:
    a valid refactor for months. ? is always the correct answer when the evidence
    does not support a specific value.
 
+9. DETECTABLE FAILURE — the system is not self-enforcing. Rules exist to
+   create recoverable failure modes, not to prevent failure. When an LLM
+   violates stop-early, skips a propagation, or reads more files than needed,
+   the damage must be detectable and repairable, not silent. Design every
+   rule with the question: "when this rule is broken, how will a future
+   session discover the violation?" If the answer is "it will not", the rule
+   needs a fallback state that makes the violation visible.
+
 ---
 
 ## FILE NAMING
@@ -167,6 +175,7 @@ layer:          presentation
 status:         verified
 confidence:     high
 generation-pass: false
+read-reason:    task-driven
 last-verified:  v7-2024-03-15
 maintained-by:  llm
 exports:
@@ -235,6 +244,23 @@ generation-pass
   regardless of what value is written.
   Set to false (or omit, defaulting to false) when the island was created or
   reviewed as part of a specific task with focused attention.
+
+read-reason
+  One of: task-driven | opportunistic | audit
+  Tells future sessions why this island was created or last updated.
+
+  task-driven    — created or updated as part of a specific task that
+                   required reading this file. The normal case.
+  opportunistic  — created or updated because the LLM read this file beyond
+                   what the task strictly required. The content may be less
+                   carefully reviewed than task-driven islands.
+  audit          — created as part of a full mapping pass (Mode 3) or a
+                   deliberate review session.
+
+  This field supports the DETECTABLE FAILURE principle (CORE PRINCIPLE 9):
+  if an LLM violates stop-early and reads extra files, setting read-reason:
+  opportunistic makes the violation visible and tells future sessions to
+  treat the island with appropriate caution.
 
 last-verified
   Format: <version-or-id>-<date> or <date> if no version system exists.
@@ -1306,6 +1332,17 @@ complete a task that required 3 is wasting resources and accumulating
 low-confidence islands that may need to be corrected later. Quality of
 reasoning over quantity of files read.
 
+FALLBACK STATE — when stop-early is violated:
+  If you read more files than the task strictly required (it happens),
+  mark any islands created or modified from those extra reads as:
+    read-reason: opportunistic
+  This tells future sessions: "this island was not task-driven — treat it
+  with appropriate caution." An opportunistic island is not wrong by
+  definition, but it was not created with the same focused attention as a
+  task-driven one. This fallback supports CORE PRINCIPLE 9 (DETECTABLE
+  FAILURE): a stop-early violation that leaves no trace is invisible to
+  the next session; an opportunistic marker makes it recoverable.
+
 ---
 
 ### BOOT MODE SUMMARY
@@ -1625,6 +1662,18 @@ DO NOT do these things:
 
 ## VERSION HISTORY
 
+v0.2.6 — design for detectable failure
+  CORE PRINCIPLES: principle 9 added (DETECTABLE FAILURE)
+    System is advisory, not enforced; rules create recoverable failure modes
+    Every rule must answer: how will a future session discover a violation?
+  read-reason field added to island HEADER
+    Values: task-driven | opportunistic | audit
+    Makes stop-early violations visible to future sessions
+  STOP-EARLY RULE updated with fallback state for violations
+    Extra-read islands marked as read-reason: opportunistic
+  Addresses: ATTACK_ANALYSIS ISSUE-007 (Self-Control as Architecture)
+  Source: Grok (#5)
+
 v0.2.5 — mainland selective read protocol
   SELECTIVE READ PROTOCOL section added between MAINLAND FILE STRUCTURE
     and VALIDITY RULES
@@ -1741,4 +1790,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2.5
+END OF SPEC v0.2.6
