@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2.10
+# LLM Island System — Specification v0.2.11
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -233,6 +233,20 @@ confidence
   Reflects certainty of the content, especially for inferred islands.
   When confidence is medium or high, RULE 8 requires a brief inline rationale
   showing the evidence (see MAINTENANCE PROTOCOL).
+
+confidence-review-due
+  Optional. Format: <version> or <date>
+  When this version or date is reached without the confidence being
+  explicitly re-reviewed, the island's confidence should be treated as
+  decayed by one level (high → medium, medium → low).
+  This prevents archaeological fossilization: old uncontradicted islands
+  being treated as reliable simply because they survived.
+  Set this field when:
+    - Creating inferred islands in archaeological projects
+    - Setting confidence: medium or high without strong evidence
+    - bootstrap-mode is archaeological and confidence rises above low
+  For task-driven islands with confidence: high backed by tests, this field
+  is not needed (write N/A or omit).
 
 generation-pass
   true | false
@@ -1447,6 +1461,10 @@ bootstrap-mode values and their implications:
     Treat confidence: medium the way you would treat confidence: low elsewhere.
     A session 50 in an archaeological project is not the same as session 50
     in a greenfield project — the islands have different epistemic weight.
+    confidence: high in an archaeological project requires
+      `confirmed-by-behavior: <evidence>` in the MEMORY section. Surviving
+      metadata is not the same thing as verified metadata.
+    Aggressively use confidence-review-due to keep uncertainty visible.
 
   unknown
     The bootstrap mode was not recorded. Treat all islands as confidence: low.
@@ -1926,6 +1944,20 @@ DO NOT do these things:
 
 ## VERSION HISTORY
 
+v0.2.11 — archaeological confidence decay
+  confidence-review-due field added to island HEADER (optional)
+    Format: <version> or <date>
+    When the threshold passes without explicit re-review, confidence
+    decays one level (high → medium, medium → low)
+    Required practice on inferred islands in archaeological projects
+  BOOTSTRAP-MODE FIELD: archaeological implications expanded
+    confidence: high in archaeological projects requires
+      `confirmed-by-behavior` evidence
+    Aggressive use of confidence-review-due encouraged
+    Surviving metadata != verified metadata
+  Addresses: ATTACK_ANALYSIS ISSUE-009 (Archaeological Fossilization)
+  Sources: Grok (#9), Gemini (implicit in #3)
+
 v0.2.10 — security review gates
   security-reviewed value added to maintained-by enum
     Required for islands with severity >= high in RISKS section
@@ -2113,4 +2145,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2.10
+END OF SPEC v0.2.11
