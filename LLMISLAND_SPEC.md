@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2.6
+# LLM Island System — Specification v0.2.7
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -634,11 +634,16 @@ load-order:
 
 architectural-rules:
   - AR-001: i18n.js has no dependencies — must never import any other module
+    self-checkable: true
   - AR-002: data.js is pure — no I/O, no side effects, no async
+    self-checkable: true
   - AR-003: dependency direction is always toward core — presentation must not
             be imported by core
+    self-checkable: true
   - AR-004: game.js is the only module permitted to hold mutable game state
+    self-checkable: true
   - AR-005: all user-visible strings must go through I18n.t() — never hardcoded
+    self-checkable: false (requires visual review or string extraction tooling)
 
 ---CONNECTIONS---
 
@@ -1265,6 +1270,7 @@ load-order:
 
 architectural-rules:
   - AR-001: ? (to be declared after first pass)
+    self-checkable: ? (can an LLM verify this by reading code?)
 
 ---CONNECTIONS---
 (none yet)
@@ -1466,6 +1472,22 @@ RULE 8: Subjective fields require rationale above low.
   Subjective fields where rationale applies: confidence, fragility, severity
   (security surfaces), strength (mainland connections).
 
+RULE 9: Post-generation constraint compliance check.
+  After generating or modifying code, before declaring the task done:
+  1. Re-read the architectural-rules from the mainland.
+  2. For each rule with self-checkable: true, verify the generated code
+     does not violate it. Check imports, layer boundaries, dependency
+     directions, and any other statically detectable constraints.
+  3. For each rule with self-checkable: false, note it in the task
+     completion: "external validation required for AR-XXX (<rule>)."
+  4. If a violation is found in a self-checkable rule: fix it before
+     declaring done. Do not note the violation and leave it for the
+     human — fix it.
+  This addresses the gap between reading a constraint and following it.
+  Reading a rule is not the same as respecting it; the spec assumes they
+  are close enough, and that assumption is structurally wrong without an
+  explicit verification step.
+
 ---
 
 ## MANAGING MEMORY OVER TIME
@@ -1662,6 +1684,22 @@ DO NOT do these things:
 
 ## VERSION HISTORY
 
+v0.2.7 — constraint compliance verification
+  RULE 9 added to MAINTENANCE PROTOCOL: post-generation compliance check
+    Re-read architectural-rules after generating code
+    Verify self-checkable rules are not violated
+    Fix violations before declaring done — do not leave them for the human
+  self-checkable sub-field added to architectural-rules format
+    self-checkable: true  — LLM can verify by reading code
+                            (imports, layers, dependency directions)
+    self-checkable: false — requires runtime or external validation
+                            (auth checks, runtime invariants)
+  Example mainland updated to use new architectural-rules format
+  MVM template updated with self-checkable: ? placeholder
+  MODE_INCREMENTAL.md WHEN DONE: step 13 added — verify compliance
+  Addresses: ATTACK_ANALYSIS ISSUE-013 (Constraint Compliance Gap)
+  Source: Mistral (#7)
+
 v0.2.6 — design for detectable failure
   CORE PRINCIPLES: principle 9 added (DETECTABLE FAILURE)
     System is advisory, not enforced; rules create recoverable failure modes
@@ -1790,4 +1828,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2.6
+END OF SPEC v0.2.7

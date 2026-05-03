@@ -43,6 +43,9 @@ See `LLMISLAND_SPEC.md` → UPDATE TIERS for the full rules.
     current at a higher tier.
 11. If any connection changed: update `connections.llmainland`.
 12. If mainland changed: flag any bound islands that may now be stale.
+13. Re-read self-checkable architectural-rules and any relevant CONTRACTS.
+    Verify the produced change does not violate them before declaring done
+    (see SPEC RULE 9 — post-generation constraint compliance check).
 
 ---
 
@@ -100,6 +103,7 @@ load-order:
 
 architectural-rules:
   - AR-001: ? (to be declared after first pass)
+    self-checkable: ? (can an LLM verify this by reading code?)
 
 ---CONNECTIONS---
 (none yet)
