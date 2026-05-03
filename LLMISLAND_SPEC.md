@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2.12
+# LLM Island System — Specification v0.2.13
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -393,6 +393,24 @@ expects
   Preconditions the caller must ensure. These are invariants the symbol
   does not check internally — it assumes they hold.
 
+runtime-dependencies
+  Optional. List of runtime values that materially change this symbol's
+  behavior without changing the source file: environment variables,
+  feature flags, config keys.
+  Format: - <name> :: <how behavior changes>
+  Example:
+    runtime-dependencies:
+      - FEATURE_FLAG_NEW_AUTH :: when true, adds MFA check to auth flow
+      - AUTH_PROVIDER :: changes OAuth provider (google | github | internal)
+      - SESSION_TIMEOUT :: controls token expiry duration
+  This field exists because the CONNECTIONS section models code imports
+  but has no vocabulary for "this function's behavior depends on
+  ENV_VAR_X at runtime." Without it, an LLM reasons from an incomplete
+  model: the island says the function reads from user-store and returns
+  User; the reality is that with FEATURE_FLAG_NEW_AUTH=true, it also
+  checks an auth service and can return Unauthorized.
+  Use `- none` (explicit) when the symbol has no runtime dependencies.
+
 tests
   Explicit links. Required fields: unit, regression, security.
   Use none explicitly — never leave blank.
@@ -526,10 +544,21 @@ platform-sensitivity
   Anything that behaves differently across platforms, runtimes, environments,
   browser versions, operating systems, or screen sizes.
 
+config-dependencies
+  Runtime configuration that materially changes the file's behavior at the
+  file level. Use this for feature-flag-heavy systems or environment-
+  conditioned flows that are too broad to repeat under every symbol's
+  runtime-dependencies field. List values, not internal mechanism.
+  Example:
+    config-dependencies:
+      - FEATURE_FLAG_AUTH :: when true, all routes in this file enforce auth
+      - DATABASE_URL :: file fails to load if unset
+
 If a category has no entries, write:
   security: none
   regression-sensitivity: none
   platform-sensitivity: none
+  config-dependencies: none
 
 ---
 
@@ -737,6 +766,25 @@ CONTRACT: player-state-cell-types
   islands-bound:[game.js, renderer.js, input.js]
   violation-consequence: renderer receives unknown type — silent failure or crash
   fragility:    high
+
+CONTRACT: auth-enforcement
+  condition:    FEATURE_FLAG_AUTH=true
+  statement:    all API endpoints must validate auth token
+  owned-by:     middleware/auth.js
+  enforced-by:  tests/auth.test.js
+  islands-bound:[middleware/auth.js, routes/*.js]
+  violation-consequence: unauthenticated access to all endpoints
+  fragility:    critical
+
+CONTRACT FIELD NOTES:
+  condition (optional)
+    A runtime predicate. When present, the contract applies only when the
+    condition is true. Use for feature-flagged invariants and environment-
+    conditional rules. An LLM that does not know the runtime context should
+    treat the contract as ACTIVE (the safer assumption).
+    Examples: condition: FEATURE_FLAG_AUTH=true
+              condition: NODE_ENV=production
+    When absent: the contract applies unconditionally.
 
 ---ARCHITECTURE-MEMORY---
 
@@ -1949,6 +1997,24 @@ DO NOT do these things:
 
 ## VERSION HISTORY
 
+v0.2.13 — runtime configuration dependencies
+  runtime-dependencies field added to SYMBOLS entries (optional)
+    Captures env vars, feature flags, config keys that change behavior
+      without changing source code
+    Use `- none` (explicit) when there are no runtime dependencies
+  config-dependencies category added to RISKS section (file-level)
+    For files where runtime configuration materially changes behavior
+      across many symbols (feature-flag-heavy systems)
+  Mainland CONTRACTS now support an optional `condition` field
+    Conditional contracts apply only when the runtime predicate is true
+    LLMs without runtime context should treat conditional contracts as
+      active (safer assumption)
+  Example mainland: auth-enforcement contract added showing the new format
+  Closes the gap where the format had no place to record "this function's
+    behavior depends on ENV_VAR_X at runtime"
+  Addresses: ATTACK_ANALYSIS ISSUE-014 (Runtime Config as Invisible Dependency)
+  Source: Mistral (#10)
+
 v0.2.12 — human-LLM handoff protocol
   LLM_BOOT.md: STEP 0C added — review human-unreviewed islands BEFORE
     starting any task that would touch the same file
@@ -2160,4 +2226,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2.12
+END OF SPEC v0.2.13
