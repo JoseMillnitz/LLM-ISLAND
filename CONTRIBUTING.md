@@ -146,6 +146,37 @@ against. This is planned for a future minor version.
 
 ---
 
+## File Organization
+
+Every file in this project — spec module, tooling source, scenario doc,
+example — should be sized for an LLM to read and reason about cleanly.
+The threshold model:
+
+| Length          | Status                                                  |
+|-----------------|---------------------------------------------------------|
+| Under 200 lines | Fine. No action needed.                                 |
+| ~200 lines      | Healthy size. The default target.                       |
+| ~300 lines      | Yellow line. Start thinking about whether the file      |
+|                 | covers more than one cohesive topic and should split.   |
+| 400+ lines      | Red line. Split into focused files.                     |
+
+Files under 200 lines are not a problem. A small focused file is
+preferable to a long one that "could be split if it grows".
+
+When splitting:
+- Group by topic, not by size. A 350-line file that covers exactly one
+  topic is better than two 175-line files where one is half a topic.
+- Update the routing index (`LLMISLAND_SPEC.md` for spec files,
+  `llmisland_tooling.py` for tooling) so an LLM can find the new files.
+- Each split file should be self-contained enough to read in isolation
+  (CORE PRINCIPLE 1 — SELF-CONTAINED — applies to project documentation
+  itself, not just to islands).
+
+This rule applies to every file authored or maintained as part of the
+project. It does not apply to upstream files (LICENSE, third-party imports).
+
+---
+
 ## Principles for Spec Evolution
 
 Changes to the spec should be evaluated against these questions:
