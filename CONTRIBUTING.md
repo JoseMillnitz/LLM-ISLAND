@@ -1,9 +1,13 @@
 # Contributing to the LLM Island System
 
-Thank you for wanting to improve this. The system is young — v0.1 — and
-there are known gaps, edge cases not yet mapped, and scenarios not yet tested
-against real codebases. Contributions that close those gaps are the most
-valuable thing you can do.
+Thank you for wanting to improve this. There are known gaps, edge cases not
+yet mapped, and scenarios not yet tested against real codebases.
+Contributions that close those gaps are the most valuable thing you can do.
+
+> **Before adopting the system in your project**, read the
+> ADOPTION AND SUSTAINABILITY section in `LLMISLAND_SPEC.md` —
+> specifically the minimum viable adoption floor. Partial adoption below
+> that floor is more dangerous than no adoption.
 
 ---
 
