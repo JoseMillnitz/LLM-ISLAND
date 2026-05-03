@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.2.2
+# LLM Island System — Specification v0.2.3
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 ---
@@ -117,6 +117,13 @@ It IS:
    signal to check all islands bound to the affected connection. This propagation
    is not optional — a stale island is a lie.
 
+8. UNCERTAINTY OVER PLAUSIBILITY — when uncertain about a value, use ?. A
+   plausible guess that sounds authoritative is worse than declared uncertainty
+   because it becomes canonical. Future sessions will cite a hallucinated value
+   as historical fact. A wrong break-impact that sounds confident will prevent
+   a valid refactor for months. ? is always the correct answer when the evidence
+   does not support a specific value.
+
 ---
 
 ## FILE NAMING
@@ -159,6 +166,7 @@ role:           Canvas drawing — scene grid, player grid, cell types, long-pre
 layer:          presentation
 status:         verified
 confidence:     high
+generation-pass: false
 last-verified:  v7-2024-03-15
 maintained-by:  llm
 exports:
@@ -214,6 +222,19 @@ status
 confidence
   One of: high | medium | low
   Reflects certainty of the content, especially for inferred islands.
+  When confidence is medium or high, RULE 8 requires a brief inline rationale
+  showing the evidence (see MAINTENANCE PROTOCOL).
+
+generation-pass
+  true | false
+  Set to true when an island was created in a bulk generation pass (e.g.,
+  legacy bootstrapping, full-map mode, automated pipeline). When true, all
+  subjective values in this island are hypotheses until individually verified.
+  A future session encountering generation-pass: true should treat every
+  subjective field (confidence, fragility, severity, strength) as provisional
+  regardless of what value is written.
+  Set to false (or omit, defaulting to false) when the island was created or
+  reviewed as part of a specific task with focused attention.
 
 last-verified
   Format: <version-or-id>-<date> or <date> if no version system exists.
@@ -1283,6 +1304,21 @@ RULE 7: Question discipline — do not ask more than necessary.
   An LLM that asks too many questions is as disruptive as one that assumes
   too much. The ? marker exists precisely to defer non-blocking unknowns.
 
+RULE 8: Subjective fields require rationale above low.
+  When setting confidence, fragility, severity, or strength to medium or
+  above, include a brief rationale showing the evidence or reasoning.
+  Format: field-name: value (rationale: brief explanation)
+  Example:
+    fragility: high (rationale: used in 7 call sites with no type guard;
+                     a signature change here broke production in v3)
+    confidence: medium (rationale: inferred from call-site patterns; no
+                        test directly asserts the behavior)
+  This forces the LLM to show its work, making hallucinated assessments
+  detectable by future sessions. If you cannot state a rationale, the
+  correct value is lower — or ?.
+  Subjective fields where rationale applies: confidence, fragility, severity
+  (security surfaces), strength (mainland connections).
+
 ---
 
 ## MANAGING MEMORY OVER TIME
@@ -1479,6 +1515,21 @@ DO NOT do these things:
 
 ## VERSION HISTORY
 
+v0.2.3 — anti-hallucination mechanisms
+  CORE PRINCIPLES: principle 8 added (UNCERTAINTY OVER PLAUSIBILITY)
+    ? is the correct answer when evidence does not support a specific value
+    Plausible guesses that sound authoritative become canonical lies
+  generation-pass field added to island HEADER
+    true when island was bulk-generated; subjective values are hypotheses
+    Future sessions treat subjective fields as provisional when true
+    Default: false (focused, task-driven authoring)
+  RULE 8 added to MAINTENANCE PROTOCOL: rationale required for subjective
+    fields set above low (confidence, fragility, severity, strength)
+    Format: field: value (rationale: explanation)
+    Forces the LLM to show its work — hallucinations become detectable
+  Addresses: ATTACK_ANALYSIS ISSUE-003 (Hallucination Fossilization)
+  Sources: Gemini (#3), Grok (#3), Mistral (#1)
+
 v0.2.2 — propagation atomicity and resume
   PROPAGATION STATE AND RESUME section added after PROPAGATION PROTOCOL
     .llmpropstts file format defined (lives at project root, NOT in mainland)
@@ -1553,4 +1604,4 @@ v0.1 — initial specification
 
 ---
 
-END OF SPEC v0.2.2
+END OF SPEC v0.2.3
