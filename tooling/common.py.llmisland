@@ -1,0 +1,366 @@
+---HEADER---
+file:                  tooling/common.py
+language:              python
+role:                  Shared filesystem and parsing helpers for the
+                       tooling/ package: file iteration, project-root
+                       walk-up, header-field reading, and date parsing.
+                       Cross-cutting result dataclasses (Finding, Report)
+                       live in tooling/types.py instead.
+layer:                 core
+status:                verified
+confidence:            high (rationale: authored fresh in this rc and
+                       reviewed against design)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc5-2026-05-03
+maintained-by:         llm
+exports:
+  - ISLAND_SUFFIX
+  - MAINLAND_NAME
+  - is_example_path
+  - iter_islands
+  - source_for_island
+  - find_project_root
+  - read_header_field
+  - parse_last_verified
+imports:
+  - datetime    :: date
+  - pathlib     :: Path
+  - re
+  - typing      :: Iterable
+depends-on:
+  - (rc6+) tooling/stale.py, spec_router.py
+                              :: every subcommand module imports from here
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: ISLAND_SUFFIX
+kind:           constant
+pure:           true
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   none
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - iter_islands       :: glob pattern
+  - source_for_island  :: suffix strip
+calls:
+  - none
+expects:
+  - none
+runtime-dependencies:
+  - none
+tests:
+  unit:       none — string literal
+  regression: none
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: MAINLAND_NAME
+kind:           constant
+pure:           true
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   none
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - find_project_root  :: file existence check during walk-up
+calls:
+  - none
+expects:
+  - none
+runtime-dependencies:
+  - none
+tests:
+  unit:       none — string literal
+  regression: none
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: is_example_path
+kind:           function
+pure:           true
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    Path.parts of the input
+  mutates:  none
+  allocs:   none meaningful
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - iter_islands       :: gates whether to yield
+  - rc6+ subcommands   :: gates severity (warning vs error on missing source)
+calls:
+  - Path.parts (attribute access)
+expects:
+  - argument is a pathlib.Path
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: iter_islands
+kind:           function
+pure:           false (filesystem walk; result depends on disk state)
+total:          true
+latency-budget: O(N) where N = files under root; typically <100ms
+effects:
+  reads:    filesystem (rglob)
+  mutates:  none
+  allocs:   yields Path objects lazily
+  throws:   propagates OSError on inaccessible directories
+  async:    false
+  io:       filesystem (directory listing)
+called-by:
+  - rc6+ subcommands   :: every command that scans islands
+calls:
+  - Path.rglob :: recursive glob
+  - is_example_path :: filter
+expects:
+  - root exists; if not, rglob yields nothing without erroring
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: filesystem walk on large monorepos
+                                  can be slow; no caching here)
+fragility-note: rc6+ subcommands call this on every invocation. On very
+                large repos, consider materializing the list once at
+                the orchestrator and threading it down.
+
+SYMBOL: source_for_island
+kind:           function
+pure:           true
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none (string manipulation only)
+  mutates:  none
+  allocs:   one Path
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - rc6 stale.py       :: locate source for mtime check
+  - rc8 validate.py    :: cross-check HEADER.file vs companion source
+calls:
+  - Path.with_name
+expects:
+  - input path ends in ISLAND_SUFFIX
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: find_project_root
+kind:           function
+pure:           false (filesystem checks)
+total:          true (walks up at most until filesystem root)
+latency-budget: O(depth) stat calls; typically <10ms
+effects:
+  reads:    filesystem (file existence checks)
+  mutates:  none
+  allocs:   Path objects
+  throws:   propagates OSError on permission errors
+  async:    false
+  io:       filesystem read
+called-by:
+  - rc7 propagation.py :: locate .llmpropstts at the right level
+calls:
+  - Path.resolve
+  - Path.exists
+expects:
+  - start is a pathlib.Path
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: read_header_field
+kind:           function
+pure:           false (filesystem read)
+total:          true (bounded by file line count)
+latency-budget: <50ms for typical island
+effects:
+  reads:    filesystem (one file)
+  mutates:  none
+  allocs:   one string per line read
+  throws:   never (catches OSError -> returns None)
+  async:    false
+  io:       filesystem read
+called-by:
+  - rc6 stale.py       :: read last-verified, status
+  - rc6 check-decay    :: read confidence-review-due
+  - rc8 validate.py    :: read various fields
+calls:
+  - Path.read_text
+  - str.splitlines, str.strip, str.startswith
+expects:
+  - path is a pathlib.Path; non-existence returns None gracefully
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: returns first match only — wrong if
+                                  the same key appears nested under a
+                                  different parent; fine for HEADER
+                                  fields because they are top-level)
+fragility-note: only safe for top-level HEADER fields. Nested fields
+                like effects.io need section-aware parsing and belong
+                in validate.py (rc8). This helper is intentionally
+                shallow to prevent subcommand modules from quietly
+                assuming nested-field correctness.
+
+SYMBOL: parse_last_verified
+kind:           function
+pure:           true
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   one date object on success
+  throws:   never (returns None on failure)
+  async:    false
+  io:       none
+called-by:
+  - rc6 stale.py       :: source-mtime comparison
+  - rc6 check-decay    :: due-date comparison
+  - rc8 validate.py    :: enforce parseable date when status: verified
+calls:
+  - re.search          :: pattern match on YYYY-MM-DD
+  - date.fromisoformat :: parse
+expects:
+  - input is a string or None
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet — high priority for first test pass
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: regex-based date extraction; takes
+                                  the first YYYY-MM-DD found; pathological
+                                  inputs fail gracefully but are not
+                                  covered by tests yet)
+fragility-note: takes the FIRST YYYY-MM-DD substring it finds. Versions
+                like "v0.3-rc1-2026-04-27" parse correctly. Inputs like
+                "v3-2024-2025" produce None via isoformat failure.
+                Pathological cases not exercised; first test pass should
+                cover them.
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - changing ISLAND_SUFFIX or MAINLAND_NAME breaks every subcommand
+  - parse_last_verified regex changes can silently miss valid dates;
+    cover with tests before changing
+platform-sensitivity:
+  - filesystem case sensitivity differs (Windows is case-insensitive,
+    POSIX is case-sensitive); rglob "*.llmisland" still matches both
+config-dependencies: none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  every helper here MUST work with stdlib only
+    established: 2026-05-03
+    evidence:    contract zero-dependency in mainland
+
+  - id: AC-002
+    constraint:  read_header_field stays shallow (top-level HEADER
+                 fields only). Nested-field parsing belongs in
+                 validate.py (rc8), not here.
+    established: 2026-05-03
+    evidence:    HD-001 below
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  read_header_field is intentionally shallow
+    reason:    deeper parsing (effects.io, tests.unit) requires
+               section-aware logic that belongs in validate.py.
+               Keeping the helper shallow prevents subcommand
+               modules from quietly assuming nested-field
+               correctness.
+    date:      2026-05-03
+    outcome:   stable
+    evidence:  inferred-from-design
+
+  - id: HD-002
+    decision:  parse_last_verified takes first YYYY-MM-DD found
+    reason:    accepts both "v7-2024-03-15" and bare "2024-03-15".
+               Pathological inputs ("v3-2024-2025") fail at
+               isoformat parsing -> None -> caller treats as "no
+               usable date". Acceptable for now; needs tests.
+    date:      2026-05-03
+    outcome:   stable; tests pending
+    evidence:  inferred-from-design
+
+  - id: HD-003
+    decision:  pull Finding and Report dataclasses out into
+               tooling/types.py
+    reason:    initial common.py island hit 417 lines, over the
+               file-size red line (400). With 10 exports, even a
+               disciplined SYMBOLS section pushed the metadata over
+               the limit. Splitting the source by concern (filesystem
+               + parsing helpers stay; result types move) brought
+               both files comfortably under the limit and made the
+               organization more honest — the dataclasses are a
+               distinct kind of artifact from the helpers.
+    date:      2026-05-03
+    outcome:   common.py shrank from 134 → 113 LOC and its island
+               from 417 → ~340 lines; types.py is ~40 LOC with a
+               ~90-line island
+    evidence:  inferred-from-design (file-size-rule pressure)
+
+SUPERSEDED:
+  - id: SD-001
+    was:            common.py exported Finding and Report alongside
+                    filesystem and parsing helpers
+    replaced-by:    tooling/types.py (Finding, Report);
+                    common.py keeps the file-system and parsing helpers
+    superseded-date: 2026-05-03
+    keep-because:   explains why callers should import from
+                    tooling.types, not tooling.common, even though the
+                    earlier rc5 design placed them together

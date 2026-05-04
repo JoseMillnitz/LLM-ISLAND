@@ -1,0 +1,8 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Tooling state — propagation cascade scratchpad lives at project root,
+# is created by `python llmisland_tooling.py prop-start`, and auto-deletes
+# when the cascade completes. Should not be committed.
+.llmpropstts

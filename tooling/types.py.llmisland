@@ -1,0 +1,146 @@
+---HEADER---
+file:                  tooling/types.py
+language:              python
+role:                  Cross-subcommand result dataclasses (Finding,
+                       Report). Every cmd_* function in the tooling/
+                       package returns a Report; findings inside a
+                       Report are Finding instances. The orchestrator
+                       reads these to format JSON or text output.
+layer:                 core
+status:                verified
+confidence:            high (rationale: authored fresh in this rc and
+                       reviewed against the subcommand-return-shape
+                       contract in the mainland)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc5-2026-05-03
+maintained-by:         llm
+exports:
+  - Finding
+  - Report
+imports:
+  - dataclasses :: dataclass, field
+depends-on:
+  - llmisland_tooling.py      :: imports Report for dispatcher output
+                                  formatting
+  - tooling/common.py         :: filesystem helpers; subcommand modules
+                                  combine helpers + types from these two
+                                  modules
+  - (rc6+) tooling/stale.py, propagation.py, rules.py, validate.py
+                              :: every subcommand returns a Report
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: Finding
+kind:           class
+pure:           true (frozen dataclass)
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  none (frozen)
+  allocs:   one instance per construction
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - rc6 stale.py       :: emits findings on staleness / decay
+  - rc7 propagation.py :: emits findings on cascade state issues
+  - rc8 validate.py    :: emits findings during validation
+calls:
+  - none
+expects:
+  - severity is one of {"error", "warning", "info"}
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: Report
+kind:           class
+pure:           true (frozen dataclass)
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  none (frozen)
+  allocs:   one instance per subcommand call
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - every rc6+ subcommand :: returns Report from cmd_*
+  - llmisland_tooling.main / _emit :: serializes to JSON or text
+calls:
+  - none
+expects:
+  - findings is list[Finding]
+  - summary is JSON-serializable
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: contract subcommand-return-shape
+                                  references this; field renames break
+                                  every subcommand silently)
+fragility-note: see contract subcommand-return-shape in mainland. Field
+                additions are safe (Tier B); renames or removals are
+                Tier C and require updating every subcommand module.
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - Report field renames cascade to every subcommand module — Tier C
+  - severity enum is informal: "error" / "warning" / "info" enforced by
+    convention, not by code; rc8 validate.py is the natural place to
+    formalize it if needed
+platform-sensitivity:    none
+config-dependencies:     none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  Finding and Report are the only cross-subcommand
+                 result types. Subcommands MUST NOT define their own
+                 result dataclasses.
+    established: 2026-05-03
+    evidence:    contract subcommand-return-shape in mainland
+
+  - id: AC-002
+    constraint:  this module stays free of business logic. Adding
+                 helper methods or factory functions here breaks the
+                 separation between data shapes (here) and helpers
+                 (common.py).
+    established: 2026-05-03
+    evidence:    inferred-from-design (HD-001)
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  pull dataclasses out of common.py into types.py
+    reason:    common.py.llmisland hit 417 lines initially, over the
+               400-line red line (CONTRIBUTING file-size rule). The
+               source file had 10 exports; even disciplined SYMBOLS
+               entries pushed the island over. Splitting by concern
+               (helpers stay; data shapes move) brought both islands
+               under the limit and made organization more honest.
+               types.py specifically holds NO logic — only frozen
+               dataclasses — so future contributors and LLMs have a
+               clear separation.
+    date:      2026-05-03
+    outcome:   stable; this island is well under 200 lines
+    evidence:  inferred-from-design (file-size-rule pressure)
+
+SUPERSEDED:
+  - none yet

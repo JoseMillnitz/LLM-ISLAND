@@ -1,0 +1,258 @@
+---HEADER---
+file:                  llmisland_tooling.py
+language:              python
+role:                  CLI orchestrator. Constructs the argparse tree (with
+                       shared parent parsers for --json and --include-
+                       examples) and dispatches subcommands into the
+                       tooling/ package. Holds no business logic of its own.
+layer:                 orchestration
+status:                verified
+confidence:            high (rationale: authored fresh in this rc and
+                       reviewed against design)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc5-2026-05-03
+maintained-by:         llm
+exports:
+  - VERSION
+  - build_parser
+  - main
+  - COMMANDS
+  - CommandHandler
+imports:
+  - argparse                  :: ArgumentParser
+  - json                      :: dumps
+  - sys                       :: argv, stderr
+  - dataclasses               :: asdict
+  - typing                    :: Callable
+  - tooling.types             :: Report
+depends-on:
+  - tooling/types.py          :: orchestrator imports the Report dataclass
+                                  for dispatcher output formatting
+  - (rc6+) tooling/stale.py, spec_router.py
+                              :: register subcommands in COMMANDS
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: VERSION
+kind:           constant
+pure:           true
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   none
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - argparse --version action :: formats it for output
+  - build_parser :: embeds in the parser description
+calls:
+  - none
+expects:
+  - none
+runtime-dependencies:
+  - none
+tests:
+  unit:       none — string constant
+  regression: none
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: CommandHandler
+kind:           type
+pure:           true (type alias)
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   none
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - COMMANDS dict :: typing of values
+calls:
+  - none
+expects:
+  - none
+runtime-dependencies:
+  - none
+tests:
+  unit:       none — type alias
+  regression: none
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: COMMANDS
+kind:           constant
+pure:           false (mutable dict; rc6+ subcommand modules register here)
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none directly (rc6+ modules mutate at import time)
+  allocs:   none
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - main :: subcommand dispatch lookup
+calls:
+  - none
+expects:
+  - keys are subcommand names from build_parser
+  - values are CommandHandler-shaped callables
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet — first end-to-end test pass lands with rc6
+  regression: none
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: contract subcommand-return-shape
+                                  governs handler return types; not
+                                  enforced statically)
+fragility-note: contract subcommand-return-shape (mainland) requires
+                every handler return either int or Report. A new
+                subcommand returning a bare dict breaks --json output
+                silently. validate.py (rc8) will flag violations.
+
+SYMBOL: build_parser
+kind:           function
+pure:           true (rationale: returns a fresh ArgumentParser tree;
+                no global state mutation)
+total:          true
+latency-budget: <10ms
+effects:
+  reads:    VERSION
+  mutates:  none
+  allocs:   one ArgumentParser tree
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - main :: at the start of each invocation
+calls:
+  - argparse.ArgumentParser :: parser construction
+  - parser.add_argument, parser.add_subparsers :: tree assembly
+expects:
+  - argparse from standard library
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: every new subcommand in rc6+ extends
+                                  this function; growth risk)
+fragility-note: rc6+ adds subparser registration here. If this function
+                grows past ~80 lines, move per-subcommand parser setup
+                into the subcommand modules themselves and have them
+                register through a helper.
+
+SYMBOL: main
+kind:           function
+pure:           false (reads sys.argv, mutates stdout/stderr)
+total:          true (every code path returns int)
+latency-budget: depends on subcommand
+effects:
+  reads:    sys.argv (via argparse), COMMANDS
+  mutates:  stdout (text or JSON), stderr (errors)
+  allocs:   parsed Namespace; subcommand result objects
+  throws:   propagates from handler functions
+  async:    false
+  io:       stdout, stderr
+called-by:
+  - __main__ block :: when invoked as a script
+  - external callers using the module programmatically
+calls:
+  - build_parser :: argparse tree
+  - parser.parse_args :: argument parsing
+  - COMMANDS[args.command] :: dispatch
+  - _emit :: output formatting
+expects:
+  - sys.argv shape per argparse
+  - subcommand handlers obey contract subcommand-return-shape
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: dispatch contract is enforced manually;
+                                  trivial to violate by adding a new
+                                  subcommand with the wrong return shape)
+fragility-note: when rc6+ subcommands land, exercise the dispatch path
+                with both --json and text output to confirm the contract
+                holds.
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - any change to the COMMANDS dict shape forces every rc6+ subcommand
+    module's registration to update in lockstep
+  - argparse parent parser additions affect every subcommand's CLI
+    surface; renames are a Tier C change to this island and to the
+    mainland CONNECTIONS
+platform-sensitivity:
+  - argparse stderr formatting differs slightly between Python versions
+    on Windows vs POSIX; --help width depends on terminal width
+config-dependencies: none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  the orchestrator must not import third-party libraries.
+                 Standard library only.
+    established: 2026-05-03
+    evidence:    contract zero-dependency in connections.llmainland
+
+  - id: AC-002
+    constraint:  every subcommand registers via parents=[common] so
+                 --json and --include-examples are uniformly available.
+                 No subcommand may define its own --json.
+    established: 2026-05-03
+    evidence:    contract shared-flags-via-parent + AR-003
+
+  - id: AC-003
+    constraint:  build_parser stays under ~80 lines. If it grows past,
+                 move per-subcommand parser setup into the subcommand
+                 modules.
+    established: 2026-05-03
+    evidence:    inferred-from-design (size-rule yellow-line target)
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  thin orchestrator + small package modules
+    reason:    file-size rule pushed toward a package; LLM-driven
+               maintenance pushed toward a single entrypoint. Hybrid
+               solves both. See mainland MHD-001.
+    date:      2026-04-27
+    outcome:   stable; orchestrator is currently 138 lines, of which
+               ~50 are docstrings/comments
+    evidence:  inferred-from-notes.md
+
+  - id: HD-002
+    decision:  argparse parent parsers for shared flags
+    reason:    LLM-recognizable pattern over custom decorator stacks.
+               See mainland MHD-002.
+    date:      2026-04-27
+    outcome:   stable
+    evidence:  inferred-from-tooling questions responses.md
+
+SUPERSEDED:
+  - none yet

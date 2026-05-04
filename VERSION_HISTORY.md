@@ -7,6 +7,55 @@ recording the release that introduced them.
 
 ---
 
+## v0.3-rc5 — tooling skeleton (orchestrator + common helpers + first islands)
+
+First RC of the tooling phase. Lays the foundation for the subcommands
+that land in rc6 → rc8: a thin CLI orchestrator at the project root,
+a shared helpers module, and the first two islands. Also creates the
+project mainland for the tooling layer (greenfield, scope = tooling
+only — spec/docs are not islanded per locked decision in `notes.md`).
+
+Files added:
+- `llmisland_tooling.py` (138 lines) — argparse orchestrator. Builds
+  the parser with shared parent options (`--json`,
+  `--include-examples`), exposes `COMMANDS` for rc6+ subcommand
+  registration, and `_emit` for uniform text/JSON output. No business
+  logic.
+- `tooling/__init__.py` — package marker with one-paragraph orientation.
+- `tooling/common.py` (134 lines) — shared helpers: `iter_islands`,
+  `source_for_island`, `find_project_root`, `read_header_field`,
+  `parse_last_verified`, `is_example_path`, plus `Finding` and `Report`
+  dataclasses. Standard library only.
+- `connections.llmainland` — first mainland in mix. Scope is
+  declared explicitly: tooling layer only. 5 architectural rules
+  (subcommand modularity, Report return shape, --json via parent
+  parser, zero deps, file-size cap), 1 connection
+  (`llmisland_tooling.py -> tooling/common.py`), 3 contracts
+  (subcommand-return-shape, zero-dependency, shared-flags-via-parent),
+  4 architecture-memory historical decisions documenting the locked
+  design choices.
+- `llmisland_tooling.py.llmisland` — first island in mix. Documents
+  every export with full HEADER/SYMBOLS/RISKS/MEMORY sections.
+- `tooling/common.py.llmisland` — second island. Same level of detail.
+
+Smoke-tested:
+```
+$ python llmisland_tooling.py --version
+llmisland_tooling 0.3-rc5
+$ python llmisland_tooling.py --help
+usage: llmisland_tooling [-h] [--version] {} ...
+```
+
+The empty `{}` in the subcommand list is correct for rc5: no subcommands
+are registered yet. They land in rc6 (check-stale, check-decay, spec),
+rc7 (prop-* + validate-rules), and rc8 (validate).
+
+The mix project is now its own first demonstration of the system. Any
+LLM working on the tooling layer reads the islands the same way it
+would read islands on any other project.
+
+---
+
 ## v0.3-rc4 — finish spec section extraction
 
 Last RC of the prompting/spec phase. After this, every operational
