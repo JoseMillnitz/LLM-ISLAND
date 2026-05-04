@@ -1,7 +1,7 @@
 ---ARCHITECTURE---
 project:            llmisland-mix-tooling
-version:            0.3-rc5
-last-verified:      2026-05-03
+version:            0.3-rc6
+last-verified:      2026-05-04
 description:        Reference tooling for the LLM Island System.
                     A thin orchestrator (llmisland_tooling.py) dispatches
                     subcommands into the tooling/ package. Each subcommand
@@ -22,7 +22,7 @@ scope:              tooling-only — the spec/docs portion of mix is NOT
 layers:
   orchestration:    [llmisland_tooling.py]
   core:             [tooling/common.py, tooling/types.py]
-  io:               []                       # rc6: stale.py, spec_router.py
+  io:               [tooling/stale.py, tooling/spec_router.py]
   data:             []                       # rc7: propagation.py
   test:             []
   config:           []
@@ -32,8 +32,10 @@ layers:
 load-order:
   - tooling/types.py         :: dataclasses; imported by orchestrator + subcommands
   - tooling/common.py        :: helpers; loaded by every subcommand module
+  - tooling/stale.py         :: registers check-stale, check-decay
+  - tooling/spec_router.py   :: registers spec
   - tooling/__init__.py      :: package marker
-  - llmisland_tooling.py     :: entrypoint; imports Report from tooling.types
+  - llmisland_tooling.py     :: entrypoint; imports subcommand modules
 
 architectural-rules:
   - AR-001: every subcommand lives in its own module under tooling/
@@ -65,22 +67,79 @@ CONNECTION: llmisland_tooling.py -> tooling/types.py
                 --json mode produces invalid output
   cycle:        false
 
-CONNECTION: tooling/common.py -> (rc6+) subcommand modules
-  uses:         iter_islands, source_for_island, find_project_root,
-                read_header_field, parse_last_verified
-  why:          rc6+ subcommands consume the file-system + parsing
-                helpers from common.py. The connection becomes
-                concrete as each subcommand module lands.
-  direction:    core -> io / data
+CONNECTION: tooling/stale.py -> tooling/common.py
+  uses:         iter_islands, source_for_island, read_header_field,
+                parse_last_verified, is_example_path
+  why:          check-stale and check-decay walk every island and parse
+                their last-verified / confidence-review-due fields
+  direction:    io -> core
+  strength:     critical
+  break-impact: check-stale and check-decay both fail entirely
+  cycle:        false
+
+CONNECTION: tooling/stale.py -> tooling/types.py
+  uses:         Finding, Report
+  why:          subcommand handlers return Report; findings are Finding
+  direction:    io -> core
+  strength:     critical
+  break-impact: handlers cannot construct return values; orchestrator
+                dispatch breaks for both subcommands
+  cycle:        false
+
+CONNECTION: tooling/spec_router.py -> tooling/common.py
+  uses:         find_project_root
+  why:          spec --topic auto-detects the project root to find
+                the SPEC/ directory when --spec-dir is not given
+  direction:    io -> core
   strength:     high
-  break-impact: subcommand modules cannot scan islands or parse dates;
-                check-stale, check-decay, validate would all fail
+  break-impact: spec --topic must be invoked from the project root
+                or with --spec-dir; default-discovery breaks
+  cycle:        false
+
+CONNECTION: tooling/spec_router.py -> tooling/types.py
+  uses:         Finding, Report
+  why:          handler returns Report on errors / --json mode
+  direction:    io -> core
+  strength:     high
+  break-impact: error and --json paths fail; the print-and-exit path
+                still works (returns int)
+  cycle:        false
+
+CONNECTION: llmisland_tooling.py -> tooling/stale.py
+  uses:         SUBCOMMANDS dict
+  why:          orchestrator iterates SUBCOMMAND_MODULES at parser-build
+                time and registers each entry's parser + handler
+  direction:    orchestration -> io
+  strength:     critical
+  break-impact: check-stale and check-decay are not registered; running
+                them produces "Unknown subcommand"
+  cycle:        false
+
+CONNECTION: llmisland_tooling.py -> tooling/spec_router.py
+  uses:         SUBCOMMANDS dict
+  why:          same as above, for spec
+  direction:    orchestration -> io
+  strength:     critical
+  break-impact: spec is not registered
+  cycle:        false
+
+CONNECTION: tooling/spec_router.py -> SPEC/
+  uses:         every SPEC/NN_*.md file (read content for --topic
+                resolution)
+  why:          spec --topic returns the content of the matching SPEC
+                module
+  direction:    io -> (external — the spec docs themselves)
+  strength:     high
+  break-impact: spec --topic returns spec-file-missing for renamed
+                or removed SPEC modules
   cycle:        false
   dynamic:      true
-  dynamic-note: edge endpoint expands as rc6+ adds subcommand modules
-                (stale.py, spec_router.py, propagation.py, rules.py,
-                validate.py). The mainland CONNECTIONS will be filled
-                in concretely with each new module.
+  dynamic-note: SPEC files are markdown documentation, not code with
+                its own islands (per locked decision in notes.md item
+                8: spec docs are not islanded). The connection is
+                declared here because spec_router.py reads the files
+                at runtime — that runtime dependency matters even
+                though the target side has no island.
 
 ---CONTRACTS---
 

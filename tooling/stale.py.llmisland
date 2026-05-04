@@ -1,0 +1,263 @@
+---HEADER---
+file:                  tooling/stale.py
+language:              python
+role:                  Subcommands check-stale and check-decay. check-stale
+                       compares each island's last-verified against its
+                       source mtime; check-decay flags islands whose
+                       confidence-review-due date or version threshold
+                       has passed.
+layer:                 io
+status:                verified
+confidence:            high (rationale: authored fresh in rc6, smoke-
+                       tested against mix's own islands which correctly
+                       reported staleness)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc6-2026-05-04
+maintained-by:         llm
+exports:
+  - cmd_check_stale
+  - setup_check_stale
+  - cmd_check_decay
+  - setup_check_decay
+  - SUBCOMMANDS
+imports:
+  - argparse
+  - datetime                  :: date
+  - pathlib                   :: Path
+  - tooling.common            :: is_example_path, iter_islands,
+                                 parse_last_verified, read_header_field,
+                                 source_for_island
+  - tooling.types             :: Finding, Report
+depends-on:
+  - llmisland_tooling.py      :: orchestrator iterates SUBCOMMANDS at
+                                 build_parser time
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: cmd_check_stale
+kind:           function
+pure:           false (filesystem reads)
+total:          true
+latency-budget: O(N) where N = islands under root; typically <2s
+effects:
+  reads:    filesystem (every .llmisland under root + companion source mtimes)
+  mutates:  none
+  allocs:   list of Finding objects + counts dict
+  throws:   never (catches OSError via helpers)
+  async:    false
+  io:       filesystem read
+called-by:
+  - llmisland_tooling.main :: dispatch when args.command == 'check-stale'
+calls:
+  - iter_islands             :: scan
+  - read_header_field        :: read last-verified, status
+  - parse_last_verified      :: parse dates
+  - source_for_island        :: derive companion path
+  - is_example_path          :: gate severity (warning vs error)
+  - Path.stat                :: source mtime
+  - date.fromtimestamp       :: convert mtime to date
+expects:
+  - args has .directory (str), .include_examples (bool)
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet — covered indirectly by validate.py rc8 fixtures
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: date.fromtimestamp uses local timezone;
+                                  if a project moves across timezones
+                                  staleness boundary cases differ by a day)
+fragility-note: a source modified at 23:30 local on 2026-05-04 with an
+                island last-verified 2026-05-04 is not flagged stale;
+                that's correct. Time-of-day precision is intentionally
+                coarse (date-only).
+
+SYMBOL: setup_check_stale
+kind:           function
+pure:           true (mutates the parser passed in, but no global state)
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  argparse.ArgumentParser passed in (adds 'directory' positional)
+  allocs:   none meaningful
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser :: at parser construction
+calls:
+  - parser.add_argument
+expects:
+  - parser supports add_argument (argparse.ArgumentParser API)
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: cmd_check_decay
+kind:           function
+pure:           false (filesystem reads + reads system clock)
+total:          true
+latency-budget: O(N) where N = islands under root; typically <2s
+effects:
+  reads:    filesystem + system clock (date.today)
+  mutates:  none
+  allocs:   list of Finding objects + counts dict
+  throws:   never (catches OSError via helpers)
+  async:    false
+  io:       filesystem read
+called-by:
+  - llmisland_tooling.main :: dispatch when args.command == 'check-decay'
+calls:
+  - iter_islands             :: scan
+  - read_header_field        :: read confidence-review-due, status, confidence
+  - parse_last_verified      :: parse due-date
+  - date.today               :: current date for comparison
+expects:
+  - args has .directory (str), .version (str|None), .include_examples (bool)
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: version comparison is lexical; "v0.10"
+                                  compares less than "v0.9" lexically.
+                                  Acceptable for major.minor up to 9
+                                  patch levels; will fail for v0.10+.)
+fragility-note: lexical version compare is a known limitation. When
+                projects start using v0.10 or higher patch numbers, the
+                comparison logic needs to switch to a proper parse.
+                check-decay should add a unit test pinning current
+                behavior before that change lands.
+
+SYMBOL: setup_check_decay
+kind:           function
+pure:           true
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  argparse.ArgumentParser passed in
+  allocs:   none meaningful
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser :: at parser construction
+calls:
+  - parser.add_argument
+expects:
+  - parser supports add_argument
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: SUBCOMMANDS
+kind:           constant
+pure:           true (frozen dict; written once at module load)
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   one dict at import time
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser :: iterates module.SUBCOMMANDS
+calls:
+  - none
+expects:
+  - keys are subcommand names
+  - values are (setup_fn, handler_fn, helptext) tuples
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - changes to the Finding/Report shapes from tooling/types.py cascade
+    here (Tier C); rc8 validate.py will catch shape mismatches once it
+    lands
+platform-sensitivity:
+  - date.fromtimestamp uses local timezone; users in different zones
+    can see day-boundary differences for files modified near midnight
+  - Path.stat returns float seconds; we drop sub-second precision
+config-dependencies: none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  every cmd_* must return tooling.types.Report (or int).
+                 No bare dicts. See contract subcommand-return-shape.
+    established: 2026-05-04
+    evidence:    contract subcommand-return-shape
+
+  - id: AC-002
+    constraint:  prefer false positives (over-flagging staleness) to
+                 false negatives. Better to make humans verify a fresh
+                 island than to silently use a stale one.
+    established: 2026-05-04
+    evidence:    inferred-from-design (HD-001)
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  prefer false positives to false negatives in staleness
+    reason:    SPEC/05_VALIDITY.md treats stale islands as HYPOTHESIS,
+               not ground truth. A false positive surfaces an island
+               for re-review; a false negative lets bad metadata feed
+               LLM reasoning. Asymmetric cost favors over-flagging.
+    date:      2026-05-04
+    outcome:   stable; pattern reused by rc8 validate.py
+    evidence:  inferred-from-spec (SPEC/05_VALIDITY.md)
+
+  - id: HD-002
+    decision:  positional 'directory' arg, not --dir flag
+    reason:    SPEC/05_VALIDITY.md examples use the form
+               "python llmisland_tooling.py check-stale ." which reads
+               most naturally as a positional argument. The tool
+               matches the spec's documented invocation pattern.
+    date:      2026-05-04
+    outcome:   stable
+    evidence:  inferred-from-spec
+
+  - id: HD-003
+    decision:  lexical version comparison for check-decay
+    reason:    no need to depend on a version-parsing library; standard
+               library only. Acceptable trade-off for projects with
+               version numbers <= v0.9 patch level. Fragility-note
+               on cmd_check_decay tracks the limitation.
+    date:      2026-05-04
+    outcome:   stable for now; will need a real parse before v0.10
+    evidence:  inferred-from-design (zero-dep contract)
+
+SUPERSEDED:
+  - none yet

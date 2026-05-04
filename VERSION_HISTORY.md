@@ -7,6 +7,69 @@ recording the release that introduced them.
 
 ---
 
+## v0.3-rc6 — check-stale, check-decay, spec --topic
+
+Three subcommands wired into the orchestrator. The first dogfood
+discovery of the chain happened here: when running `check-stale .`
+on mix itself, the rc5 islands correctly reported as stale because
+their `last-verified` (2026-05-03) preceded their source mtime
+(2026-05-04, the actual edit date). The tool caught a real
+inconsistency in its own metadata.
+
+Code added:
+- `tooling/stale.py` (~225 LOC) — `cmd_check_stale` + `cmd_check_decay`,
+  each with a `setup_*` parser configurator and a shared
+  `SUBCOMMANDS` dict. check-stale compares last-verified vs source
+  mtime; check-decay flags expired confidence-review-due (date or
+  version threshold).
+- `tooling/spec_router.py` (~210 LOC) — `cmd_spec` with a 60-key
+  `SPEC_TOPIC_MAP` covering every SPEC/ module, plus fuzzy-match
+  fallback for partial / unknown keys. Prints SPEC content directly
+  when `--json` is absent; returns Report with content in summary
+  when `--json` is set.
+- `tooling/__init__.py` re-exports nothing (the orchestrator imports
+  the submodules directly).
+
+Orchestrator changes:
+- `SUBCOMMAND_MODULES = (stale, spec_router)` tuple. `build_parser`
+  iterates each module's `SUBCOMMANDS` dict to register subcommands.
+  Adding a new subcommand module is a two-step change: write the
+  module with a `SUBCOMMANDS` dict, append it to this tuple.
+- Windows UTF-8 fix: `sys.stdout`/`sys.stderr` get wrapped in
+  `TextIOWrapper(errors="replace")` when the default encoding is
+  not UTF-8. Required because spec content includes em dashes,
+  arrows, and accented characters that crash on Windows cp1252.
+
+Islands and mainland:
+- `tooling/stale.py.llmisland` — full HEADER/SYMBOLS/RISKS/MEMORY,
+  documents 5 exports + 3 historical decisions (false-positive
+  preference, positional directory arg, lexical version comparison).
+- `tooling/spec_router.py.llmisland` — same structure, documents 4
+  exports + 3 historical decisions (direct print vs JSON, fuzzy
+  match fallback, --topic required).
+- All 3 prior islands re-verified (last-verified bumped to
+  v0.3-rc6-2026-05-04; called-by lists made concrete instead of
+  forward-looking).
+- `connections.llmainland` updated: 2 new files in `io` layer, 7
+  new connections (stale -> common, stale -> types, spec_router ->
+  common, spec_router -> types, orchestrator -> stale, orchestrator
+  -> spec_router, spec_router -> SPEC/ as a dynamic external
+  connection).
+
+Smoke test results:
+- `python llmisland_tooling.py --version` -> 0.3-rc6
+- `python llmisland_tooling.py --help` -> lists check-stale, check-decay, spec
+- `python llmisland_tooling.py check-stale` -> all 5 islands now fresh
+- `python llmisland_tooling.py check-decay` -> ok (none expired)
+- `python llmisland_tooling.py spec --topic header` -> prints
+  `SPEC/01_HEADER.md`
+- `python llmisland_tooling.py spec --topic xyzzy` -> unknown-topic
+  Report with the full available-topics list
+
+`.gitignore` not modified.
+
+---
+
 ## v0.3-rc5 — tooling skeleton (orchestrator + common helpers + first islands)
 
 First RC of the tooling phase. Lays the foundation for the subcommands

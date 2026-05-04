@@ -12,7 +12,7 @@ confidence:            high (rationale: authored fresh in this rc and
                        reviewed against design)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc5-2026-05-03
+last-verified:         v0.3-rc6-2026-05-04
 maintained-by:         llm
 exports:
   - ISLAND_SUFFIX
@@ -29,8 +29,16 @@ imports:
   - re
   - typing      :: Iterable
 depends-on:
-  - (rc6+) tooling/stale.py, spec_router.py
-                              :: every subcommand module imports from here
+  - tooling/stale.py          :: imports iter_islands, source_for_island,
+                                  read_header_field, parse_last_verified,
+                                  is_example_path
+  - tooling/spec_router.py    :: imports find_project_root
+  - (rc7+) tooling/propagation.py, rules.py
+                              :: will import find_project_root,
+                                  read_header_field, iter_islands
+  - (rc8) tooling/validate.py :: will import iter_islands,
+                                  source_for_island, parse_last_verified,
+                                  is_example_path
 translation-boundary:  none
 dynamic-boundary:      false
 
@@ -167,7 +175,7 @@ effects:
   async:    false
   io:       none
 called-by:
-  - rc6 stale.py       :: locate source for mtime check
+  - tooling/stale.py   ::locate source for mtime check
   - rc8 validate.py    :: cross-check HEADER.file vs companion source
 calls:
   - Path.with_name
@@ -225,8 +233,8 @@ effects:
   async:    false
   io:       filesystem read
 called-by:
-  - rc6 stale.py       :: read last-verified, status
-  - rc6 check-decay    :: read confidence-review-due
+  - tooling/stale.py   ::read last-verified, status
+  - tooling/stale.py   :: cmd_check_decay -read confidence-review-due
   - rc8 validate.py    :: read various fields
 calls:
   - Path.read_text
@@ -263,8 +271,8 @@ effects:
   async:    false
   io:       none
 called-by:
-  - rc6 stale.py       :: source-mtime comparison
-  - rc6 check-decay    :: due-date comparison
+  - tooling/stale.py   ::source-mtime comparison
+  - tooling/stale.py   :: cmd_check_decay -due-date comparison
   - rc8 validate.py    :: enforce parseable date when status: verified
 calls:
   - re.search          :: pattern match on YYYY-MM-DD

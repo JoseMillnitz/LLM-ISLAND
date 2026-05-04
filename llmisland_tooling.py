@@ -20,14 +20,29 @@ Standard library only. Python 3.10+.
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import sys
 from dataclasses import asdict
 from typing import Callable
 
+from tooling import spec_router, stale
 from tooling.types import Report
 
-VERSION = "0.3-rc5"
+# Force UTF-8 on Windows. The default Windows console encoding is cp1252,
+# which crashes on non-ASCII characters that appear normally in spec
+# content (em dashes, arrows, accented characters). Wrap stdout/stderr
+# only when needed so we don't double-wrap on POSIX.
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
+VERSION = "0.3-rc6"
+
+# Modules whose SUBCOMMANDS dicts the orchestrator picks up at parser
+# build time. Adding a new subcommand module is a two-step change: write
+# the module with a SUBCOMMANDS dict, then add it to this tuple.
+SUBCOMMAND_MODULES = (stale, spec_router)
 
 
 # ---------------------------------------------------------------------------
@@ -73,11 +88,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version",
                         version=f"llmisland_tooling {VERSION}")
 
-    # Subcommands attach here in rc6+. The ``parents=[common]`` pattern
-    # is locked: do not let a subcommand define its own --json.
-    parser.add_subparsers(dest="command", required=False,
-                          parser_class=argparse.ArgumentParser)
-    parser._common_parent = common  # type: ignore[attr-defined]
+    # Subcommands attach via ``parents=[common]`` so they uniformly inherit
+    # --json and --include-examples (architectural-rule AR-003 + contract
+    # shared-flags-via-parent in connections.llmainland). Each
+    # SUBCOMMAND_MODULES entry exposes a SUBCOMMANDS dict mapping
+    # ``name -> (setup_fn, handler_fn, helptext)``.
+    sub = parser.add_subparsers(dest="command", required=False)
+    for module in SUBCOMMAND_MODULES:
+        for name, (setup_fn, handler_fn, helptext) in module.SUBCOMMANDS.items():
+            sp = sub.add_parser(name, parents=[common], help=helptext)
+            setup_fn(sp)
+            COMMANDS[name] = handler_fn
 
     return parser
 

@@ -7,11 +7,11 @@ role:                  CLI orchestrator. Constructs the argparse tree (with
                        tooling/ package. Holds no business logic of its own.
 layer:                 orchestration
 status:                verified
-confidence:            high (rationale: authored fresh in this rc and
-                       reviewed against design)
+confidence:            high (rationale: authored fresh, smoke-tested in
+                       rc5 and rc6 against mix's own islands)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc5-2026-05-03
+last-verified:         v0.3-rc6-2026-05-04
 maintained-by:         llm
 exports:
   - VERSION
@@ -19,18 +19,24 @@ exports:
   - main
   - COMMANDS
   - CommandHandler
+  - SUBCOMMAND_MODULES
 imports:
   - argparse                  :: ArgumentParser
+  - io                        :: TextIOWrapper (Windows UTF-8 fix)
   - json                      :: dumps
-  - sys                       :: argv, stderr
+  - sys                       :: argv, stdout, stderr
   - dataclasses               :: asdict
   - typing                    :: Callable
+  - tooling                   :: stale, spec_router (subcommand modules)
   - tooling.types             :: Report
 depends-on:
   - tooling/types.py          :: orchestrator imports the Report dataclass
                                   for dispatcher output formatting
-  - (rc6+) tooling/stale.py, spec_router.py
-                              :: register subcommands in COMMANDS
+  - tooling/stale.py          :: registers check-stale, check-decay
+  - tooling/spec_router.py    :: registers spec
+  - (rc7+) tooling/propagation.py, rules.py
+                              :: register more subcommands
+  - (rc8) tooling/validate.py :: registers validate
 translation-boundary:  none
 dynamic-boundary:      false
 
@@ -95,12 +101,13 @@ fragility-note: N/A
 
 SYMBOL: COMMANDS
 kind:           constant
-pure:           false (mutable dict; rc6+ subcommand modules register here)
+pure:           false (mutable dict; populated during build_parser via
+                SUBCOMMAND_MODULES iteration)
 total:          true
 latency-budget: N/A
 effects:
   reads:    none
-  mutates:  none directly (rc6+ modules mutate at import time)
+  mutates:  build_parser populates entries during parser construction
   allocs:   none
   throws:   never
   async:    false
@@ -115,8 +122,10 @@ expects:
 runtime-dependencies:
   - none
 tests:
-  unit:       none yet — first end-to-end test pass lands with rc6
-  regression: none
+  unit:       none yet
+  regression: end-to-end smoke test in rc6 (check-stale, check-decay,
+              spec --topic) confirmed all three subcommands dispatch
+              and format output correctly
   security:   none
 business-rule: N/A
 fragility:    medium (rationale: contract subcommand-return-shape
@@ -126,6 +135,38 @@ fragility-note: contract subcommand-return-shape (mainland) requires
                 every handler return either int or Report. A new
                 subcommand returning a bare dict breaks --json output
                 silently. validate.py (rc8) will flag violations.
+
+SYMBOL: SUBCOMMAND_MODULES
+kind:           constant
+pure:           true (frozen tuple at module load)
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   one tuple at module load
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - build_parser :: iterates to register subcommands from each module
+calls:
+  - none
+expects:
+  - each entry is a module exposing a SUBCOMMANDS dict shaped
+    {name: (setup_fn, handler_fn, helptext)}
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: adding a new subcommand module is a two-step change:
+                write the module with a SUBCOMMANDS dict, then add
+                the module to this tuple. The two-step nature makes
+                the addition explicit rather than auto-magical.
 
 SYMBOL: build_parser
 kind:           function

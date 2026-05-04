@@ -13,7 +13,7 @@ confidence:            high (rationale: authored fresh in this rc and
                        contract in the mainland)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc5-2026-05-03
+last-verified:         v0.3-rc6-2026-05-04
 maintained-by:         llm
 exports:
   - Finding
@@ -26,8 +26,11 @@ depends-on:
   - tooling/common.py         :: filesystem helpers; subcommand modules
                                   combine helpers + types from these two
                                   modules
-  - (rc6+) tooling/stale.py, propagation.py, rules.py, validate.py
-                              :: every subcommand returns a Report
+  - tooling/stale.py          :: imports Finding, Report
+  - tooling/spec_router.py    :: imports Finding, Report
+  - (rc7+) tooling/propagation.py, rules.py
+                              :: will import Finding, Report
+  - (rc8) tooling/validate.py :: will import Finding, Report
 translation-boundary:  none
 dynamic-boundary:      false
 

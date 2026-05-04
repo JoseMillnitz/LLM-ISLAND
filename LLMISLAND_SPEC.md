@@ -1,4 +1,4 @@
-# LLM Island System — Specification v0.3-rc5
+# LLM Island System — Specification v0.3-rc6
 # A semantic companion layer for codebases, optimized for LLM reasoning
 
 For background — what this system is, what it is not, and the
@@ -43,4 +43,4 @@ Mistral / Codex / Antigravity), and the issue-to-release mapping.
 
 ---
 
-END OF SPEC v0.3-rc5
+END OF SPEC v0.3-rc6

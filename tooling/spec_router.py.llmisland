@@ -1,0 +1,236 @@
+---HEADER---
+file:                  tooling/spec_router.py
+language:              python
+role:                  Subcommand 'spec --topic TOPIC'. Maps a short
+                       topic keyword to the corresponding SPEC/NN_*.md
+                       module and prints its content directly. Saves
+                       sessions from reading LLMISLAND_SPEC.md's topic
+                       table just to find the right module.
+layer:                 io
+status:                verified
+confidence:            high (rationale: authored fresh in rc6, smoke-
+                       tested for all 14 SPEC/ files via topic keys)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc6-2026-05-04
+maintained-by:         llm
+exports:
+  - SPEC_TOPIC_MAP
+  - cmd_spec
+  - setup_spec
+  - SUBCOMMANDS
+imports:
+  - argparse
+  - pathlib                   :: Path
+  - tooling.common            :: find_project_root
+  - tooling.types             :: Finding, Report
+depends-on:
+  - llmisland_tooling.py      :: orchestrator iterates SUBCOMMANDS
+  - SPEC/                     :: every keyword maps to a SPEC/NN_*.md
+                                 file; missing files produce a Report
+                                 with code spec-file-missing
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: SPEC_TOPIC_MAP
+kind:           constant
+pure:           true
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   one dict at import time (~60 entries)
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - cmd_spec :: lookup
+  - error message :: lists keys when topic is unknown
+calls:
+  - none
+expects:
+  - keys are normalized (lowercase, no separators)
+  - values are SPEC/ filenames that exist on disk
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet — first test pass should assert every value
+              corresponds to an existing SPEC/ file
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: filenames are hardcoded; renaming a
+                                  SPEC/ module silently breaks every
+                                  matching topic key)
+fragility-note: when SPEC/ modules are renamed, the rename cascades
+                here. validate.py (rc8) should add a check that every
+                value in this map resolves to an existing file.
+
+SYMBOL: cmd_spec
+kind:           function
+pure:           false (reads filesystem, prints to stdout)
+total:          true
+latency-budget: <50ms (one file read)
+effects:
+  reads:    filesystem (one SPEC/ file)
+  mutates:  stdout when not in --json mode
+  allocs:   one string for file content
+  throws:   never (returns Report on errors)
+  async:    false
+  io:       filesystem read, stdout
+called-by:
+  - llmisland_tooling.main :: dispatch when args.command == 'spec'
+calls:
+  - _normalize         :: input cleanup
+  - _resolve_topic     :: lookup with fuzzy fallback
+  - find_project_root  :: locate SPEC/ when --spec-dir absent
+  - Path.read_text     :: load file content
+expects:
+  - args has .topic (str), .spec_dir (str|None), .json (bool, from
+    parent parser)
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: dual return type — int for direct
+                                  print path, Report for --json /
+                                  error paths. A future change must
+                                  preserve both branches.)
+fragility-note: contract subcommand-return-shape (mainland) permits
+                int OR Report. spec returns int 0 in the print-and-
+                exit path because wrapping the SPEC/ module content
+                in a Report would force the caller to extract it.
+                With --json, returns Report so the content is in the
+                summary as a string, machine-parseable.
+
+SYMBOL: setup_spec
+kind:           function
+pure:           true (mutates parser passed in)
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  argparse.ArgumentParser
+  allocs:   none meaningful
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser
+calls:
+  - parser.add_argument
+expects:
+  - parser supports add_argument
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: SUBCOMMANDS
+kind:           constant
+pure:           true
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   one dict at import time
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser :: iterates module.SUBCOMMANDS
+calls:
+  - none
+expects:
+  - {'spec': (setup_spec, cmd_spec, helptext)} shape
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - renaming any SPEC/ module silently breaks every matching topic key
+    in SPEC_TOPIC_MAP; mitigate by adding a startup assertion in rc8
+    validate.py
+platform-sensitivity:
+  - file content is decoded as UTF-8 with errors='replace'; on Windows
+    consoles without UTF-8 the orchestrator wraps stdout (see
+    llmisland_tooling.py.llmisland). Without that wrap, Unicode
+    characters in spec content would crash on Windows cp1252.
+config-dependencies: none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  every value in SPEC_TOPIC_MAP must correspond to an
+                 existing file under SPEC/. The set of distinct values
+                 should equal the set of SPEC/NN_*.md filenames.
+    established: 2026-05-04
+    evidence:    smoke test: ran spec --topic for one key per file in
+                 rc6; all resolved correctly
+
+  - id: AC-002
+    constraint:  cmd_spec must return int 0 in the print-and-exit
+                 path, NOT a Report. Wrapping the content in a Report
+                 would force callers to extract it. The orchestrator
+                 dispatcher accepts either return type per contract
+                 subcommand-return-shape.
+    established: 2026-05-04
+    evidence:    contract subcommand-return-shape
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  print spec content directly when --json is absent
+    reason:    the user wants to see the spec module, not a JSON
+               wrapper around it. Wrapping in a Report would make
+               text output noisy: "[ok] spec\n  summary:\n    content:
+               <thousands of lines>".
+    date:      2026-05-04
+    outcome:   stable; --json still returns Report so machine-
+               parseable use cases work
+    evidence:  inferred-from-design
+
+  - id: HD-002
+    decision:  fuzzy substring matching as fallback when exact lookup
+               fails
+    reason:    LLMs and humans both type partial keywords. Returning
+               an unambiguous match for "stat" -> "status" is helpful;
+               returning "ambiguous" for "stat" -> ["status", "stale",
+               "staleness"] is honest. The matcher prefers exact then
+               unique-substring then unambiguous-failure-with-list.
+    date:      2026-05-04
+    outcome:   stable
+    evidence:  inferred-from-design
+
+  - id: HD-003
+    decision:  --topic is required, not optional
+    reason:    'spec' with no topic has no useful default. Either
+               print everything (defeats the purpose) or print
+               nothing (silent). Required is clearer.
+    date:      2026-05-04
+    outcome:   stable
+    evidence:  inferred-from-design
+
+SUPERSEDED:
+  - none yet
