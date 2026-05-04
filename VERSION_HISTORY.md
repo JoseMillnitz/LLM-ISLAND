@@ -7,6 +7,53 @@ recording the release that introduced them.
 
 ---
 
+## v0.3-rc4 — finish spec section extraction
+
+Last RC of the prompting/spec phase. After this, every operational
+section lives under `SPEC/`. `LLMISLAND_SPEC.md` is now a 47-line
+router with a topic table.
+
+- 6 more modules extracted from `LLMISLAND_SPEC.md`:
+  - `SPEC/08_BOOTSTRAP.md`    — bootstrap (greenfield + legacy +
+                                archaeological), boot modes (1/2/3),
+                                MVM template, confidence-gated
+                                expansion, expansion triggers,
+                                stop-early rule, bootstrap-mode field
+  - `SPEC/09_MAINTENANCE.md`  — 10 maintenance rules + managing memory
+                                over time + .llwasland archival
+  - `SPEC/10_EDGE_CASES.md`   — monorepos, dynamic deps, cycles,
+                                expanded cross-language boundaries,
+                                cross-language pipelines
+  - `SPEC/11_SECURITY.md`     — security review gates, adversarial
+                                injection threat model, open-source
+                                publishing guidance
+  - `SPEC/12_ADOPTION.md`     — minimum viable adoption floor,
+                                mainland consistency role, abandonment
+                                protocol
+  - `SPEC/13_REFERENCE.md`    — XP alignment, quick reference (per-
+                                scenario procedures), anti-patterns
+
+- `LLMISLAND_SPEC.md` reduced from 953 → 47 lines. It is now purely
+  the routing entrypoint: title, version, README+VERSION_HISTORY
+  pointer, and the TOPIC TABLE that maps tasks to `SPEC/*` modules.
+- TOPIC TABLE updated: every "This file — <SECTION>" row now points
+  to its corresponding `SPEC/*` module.
+- `SPEC/README.md` directory router updated with all 14 modules.
+
+Note: `SPEC/08_BOOTSTRAP.md` is 363 lines — over the 300-line "yellow
+line" but well under the 400-line red line. It groups bootstrap +
+boot modes + MVM + expansion + stop-early because those topics are
+heavily cross-referenced and a session reading any one usually needs
+the others. Splitting now would create chatty cross-file references
+that hurt LLM comprehension more than the file size does. Acceptable
+under the file-size rule.
+
+Tooling (the rc5+ chain) starts after this RC. The spec at v0.3-rc4
+already references commands that do not exist yet (check-stale,
+prop-*, validate-rules, etc.); the next RCs build them.
+
+---
+
 ## v0.3-rc3 — operational sections to SPEC/
 
 - 4 more modules extracted from `LLMISLAND_SPEC.md`:

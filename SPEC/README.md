@@ -20,11 +20,12 @@ common tasks to the right module.
 | [05_VALIDITY.md](05_VALIDITY.md) | Validity rules, status progression, and the staleness detection obligation. |
 | [06_TIERS.md](06_TIERS.md) | Update tiers A/B/C and the tier determination decision tree. |
 | [07_PROPAGATION.md](07_PROPAGATION.md) | Propagation protocol and the `.llmpropstts` cascade state file. |
-
-More modules land in v0.3-rc4: bootstrap and boot modes, maintenance
-protocol, structural edge cases, cross-language pipelines, security
-review gates, adoption and sustainability, and the quick reference /
-anti-patterns block.
+| [08_BOOTSTRAP.md](08_BOOTSTRAP.md) | Greenfield + legacy bootstrap, three boot modes, MVM, expansion triggers, stop-early, bootstrap-mode field. |
+| [09_MAINTENANCE.md](09_MAINTENANCE.md) | The 10 maintenance rules and managing memory growth over time (`.llwasland` archival). |
+| [10_EDGE_CASES.md](10_EDGE_CASES.md) | Monorepos, dynamic deps, cycles, expanded cross-language boundaries, cross-language pipelines guidance. |
+| [11_SECURITY.md](11_SECURITY.md) | Security review gates, adversarial injection threat model, open-source publishing guidance. |
+| [12_ADOPTION.md](12_ADOPTION.md) | Minimum viable adoption floor, mainland consistency role, abandonment protocol. |
+| [13_REFERENCE.md](13_REFERENCE.md) | XP alignment, quick reference (per-scenario procedures), anti-patterns. |
 
 ## Read order for new readers
 
