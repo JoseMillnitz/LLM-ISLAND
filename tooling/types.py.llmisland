@@ -13,7 +13,7 @@ confidence:            high (rationale: authored fresh in this rc and
                        contract in the mainland)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc6-2026-05-04
+last-verified:         v0.3-rc7-2026-05-05
 maintained-by:         llm
 exports:
   - Finding
@@ -28,8 +28,8 @@ depends-on:
                                   modules
   - tooling/stale.py          :: imports Finding, Report
   - tooling/spec_router.py    :: imports Finding, Report
-  - (rc7+) tooling/propagation.py, rules.py
-                              :: will import Finding, Report
+  - tooling/propagation.py    :: imports Finding, Report
+  - tooling/rules.py          :: imports Finding, Report
   - (rc8) tooling/validate.py :: will import Finding, Report
 translation-boundary:  none
 dynamic-boundary:      false

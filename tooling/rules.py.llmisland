@@ -1,0 +1,203 @@
+---HEADER---
+file:                  tooling/rules.py
+language:              python
+role:                  Subcommand validate-rules. Extracts the
+                       architectural-rules block from connections.llmainland
+                       and groups entries by self-checkable: true | false.
+                       The tool itself does NOT validate code; it formats
+                       the rules so an LLM can verify a diff against them
+                       in one read. With --diff, includes the diff and an
+                       LLM instruction in the Report summary.
+layer:                 io
+status:                verified
+confidence:            high (rationale: authored fresh in rc7. Smoke-
+                       tested found and fixed a real bug — initial
+                       regex matched both "self-checkable: true" and
+                       "self-checkable: false" as self-checkable. Fixed.)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc7-2026-05-05
+maintained-by:         llm
+exports:
+  - cmd_validate_rules
+  - setup_validate_rules
+  - SUBCOMMANDS
+imports:
+  - argparse
+  - re
+  - pathlib                   :: Path
+  - tooling.common            :: MAINLAND_NAME, find_project_root
+  - tooling.types             :: Finding, Report
+depends-on:
+  - llmisland_tooling.py      :: orchestrator iterates SUBCOMMANDS
+  - connections.llmainland    :: source document for rule extraction
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: cmd_validate_rules
+kind:           function
+pure:           false (filesystem read)
+total:          true
+latency-budget: <100ms
+effects:
+  reads:    filesystem (mainland + optional diff)
+  mutates:  none
+  allocs:   list of Finding objects + summary dict
+  throws:   never
+  async:    false
+  io:       filesystem read
+called-by:
+  - llmisland_tooling.main :: dispatch on 'validate-rules'
+calls:
+  - find_project_root, Path.read_text, _extract_rules
+expects:
+  - args.mainland is None or a path to an existing file
+  - args.diff is None or a path to an existing file
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: rc7 smoke test: against tooling mainland, correctly
+              classified AR-001..AR-004 as self-checkable and AR-005
+              as not self-checkable
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: regex-based extraction is fragile to
+                                  format changes in the mainland's
+                                  architectural-rules block)
+fragility-note: rc7 already caught one regex bug (matching "false" as
+                self-checkable). The _extract_rules function below has
+                its own SYMBOL entry tracking that fragility.
+
+SYMBOL: setup_validate_rules
+kind:           function
+pure:           true (mutates parser passed in)
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  argparse.ArgumentParser
+  allocs:   none meaningful
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser
+calls:
+  - parser.add_argument
+expects:
+  - parser supports add_argument
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: SUBCOMMANDS
+kind:           constant
+pure:           true
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   one dict at import time
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser :: iterates module.SUBCOMMANDS
+calls:
+  - none
+expects:
+  - {'validate-rules': (setup_validate_rules, cmd_validate_rules, helptext)}
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - any change to the architectural-rules block format in the mainland
+    cascades here; the regex must be updated in lockstep
+  - the multi-line rule format (continuation indented under AR-NNN:)
+    is parsed by taking only the first line; rules that put critical
+    information on continuation lines may lose it in the output
+platform-sensitivity:
+  - none
+config-dependencies: none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  validate-rules MUST distinguish self-checkable: true
+                 from self-checkable: false. Treating both as
+                 self-checkable surfaces rules that a future LLM
+                 cannot verify and produces false confidence.
+    established: 2026-05-05
+    evidence:    rc7 smoke test caught and fixed this exact bug;
+                 see HD-001
+
+  - id: AC-002
+    constraint:  the tool is FORMATTING, not validating. The output
+                 is for an LLM (or human) to act on; the tool itself
+                 cannot verify whether code complies with a rule.
+                 Do not add automated verification logic here that
+                 pretends to do what RULE 9 in MAINTENANCE PROTOCOL
+                 expects from the LLM.
+    established: 2026-05-05
+    evidence:    inferred-from-spec (SPEC/09_MAINTENANCE.md RULE 9)
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  bool(re.search) was the original is_self check; fixed
+               to compare match.group(1).lower() == "true"
+    reason:    bool(re.search(r"self-checkable: (true|false)", ...))
+               returns True for ANY match, including "false". The bug
+               surfaced in rc7 smoke test against the tooling mainland
+               which has self-checkable: false on AR-005 — that rule
+               showed up as self-checkable until the fix.
+    date:      2026-05-05
+    outcome:   fixed in the same RC; first-line is now correctly
+               classified by reading the captured group
+    evidence:  inferred-from-smoke-test
+
+  - id: HD-002
+    decision:  --diff appends the diff to the Report summary, does
+               not invoke any external diff tool
+    reason:    zero-dependency contract. The user (or an LLM agent)
+               passes a pre-computed diff path; this tool does not
+               try to run git or compute diffs itself. Keeps the
+               surface small and the contract honest.
+    date:      2026-05-05
+    outcome:   stable
+    evidence:  inferred-from-design (zero-dependency contract)
+
+  - id: HD-003
+    decision:  output is INFO-level findings, not warnings/errors
+    reason:    extraction is informational. ok=True regardless of
+               whether rules exist; the LLM consuming the output
+               decides what to do with it. An empty rule block
+               produces a single warning ("no-rules") because that's
+               an actionable signal, but the per-rule entries are
+               INFO so they don't pollute exit-code semantics.
+    date:      2026-05-05
+    outcome:   stable
+    evidence:  inferred-from-design
+
+SUPERSEDED:
+  - none yet

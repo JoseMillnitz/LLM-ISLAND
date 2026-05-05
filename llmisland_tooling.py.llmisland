@@ -11,7 +11,7 @@ confidence:            high (rationale: authored fresh, smoke-tested in
                        rc5 and rc6 against mix's own islands)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc6-2026-05-04
+last-verified:         v0.3-rc7-2026-05-05
 maintained-by:         llm
 exports:
   - VERSION
@@ -27,15 +27,17 @@ imports:
   - sys                       :: argv, stdout, stderr
   - dataclasses               :: asdict
   - typing                    :: Callable
-  - tooling                   :: stale, spec_router (subcommand modules)
+  - tooling                   :: stale, spec_router, propagation, rules
+                                  (subcommand modules)
   - tooling.types             :: Report
 depends-on:
   - tooling/types.py          :: orchestrator imports the Report dataclass
                                   for dispatcher output formatting
   - tooling/stale.py          :: registers check-stale, check-decay
   - tooling/spec_router.py    :: registers spec
-  - (rc7+) tooling/propagation.py, rules.py
-                              :: register more subcommands
+  - tooling/propagation.py    :: registers prop-start, prop-done,
+                                  prop-status, prop-finish
+  - tooling/rules.py          :: registers validate-rules
   - (rc8) tooling/validate.py :: registers validate
 translation-boundary:  none
 dynamic-boundary:      false

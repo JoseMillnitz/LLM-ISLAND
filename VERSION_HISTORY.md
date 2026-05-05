@@ -7,6 +7,84 @@ recording the release that introduced them.
 
 ---
 
+## v0.3-rc7 — propagation suite + validate-rules
+
+Eight subcommands wired in total now (5 new this RC). Two more
+dogfood discoveries this RC.
+
+Code added:
+
+- `tooling/propagation.py` (~270 LOC) — four cascade-lifecycle
+  subcommands wrapping the `.llmpropstts` file at the project root:
+  `prop-start`, `prop-done`, `prop-status`, `prop-finish`. Module-
+  private `_read` and `_write` are the canonical readers/writers of
+  the on-disk format. `prop-done` auto-deletes the file when the
+  pending list empties; `prop-finish --force` is the explicit
+  abandonment path.
+
+- `tooling/rules.py` (~140 LOC) — `validate-rules`. Extracts the
+  `architectural-rules` block from `connections.llmainland` and
+  groups entries by `self-checkable: true | false`. With `--diff
+  PATH`, the diff content and an LLM instruction land in the Report
+  summary so the LLM can mark each rule PASS or FAIL inline.
+
+Orchestrator changes:
+- `SUBCOMMAND_MODULES = (stale, spec_router, propagation, rules)` —
+  added the two new modules. Help text now lists eight subcommands.
+
+Dogfood discoveries this RC:
+
+1. The initial regex in `validate-rules` matched `self-checkable:
+   true` and `self-checkable: false` as the same thing. Smoke test
+   against the tooling mainland (which has AR-005 marked
+   self-checkable: false) showed AR-005 in the self-checkable
+   bucket. Fixed by inspecting `match.group(1).lower() == "true"`.
+   The bug is recorded in tooling/rules.py.llmisland's HD-001 — a
+   real example of "test the tool against your own metadata" paying
+   off in the same RC.
+
+2. The propagation suite end-to-end smoke test (start -> 3x done ->
+   auto-finish -> status reports no-cascade) confirmed the
+   auto-delete contract from SPEC/07_PROPAGATION.md works as
+   documented. AC-003 in `propagation.py.llmisland` codifies the
+   contract for future sessions.
+
+Islands and mainland:
+- `tooling/propagation.py.llmisland` (~290 lines) — full HEADER/
+  SYMBOLS/RISKS/MEMORY for 9 exports + 3 historical decisions
+  (clobber refusal, auto-delete on empty, "- none" placeholder
+  format).
+- `tooling/rules.py.llmisland` (~155 lines) — 3 exports + 3
+  historical decisions including HD-001 documenting the regex bug
+  caught in this same RC.
+- All 3 prior tooling islands re-verified to v0.3-rc7-2026-05-05;
+  forward-looking depends-on entries promoted to concrete refs.
+- `connections.llmainland` updated:
+  - `data` layer populated (propagation.py)
+  - `io` layer extended (rules.py)
+  - 9 new connections (orchestrator -> propagation, orchestrator ->
+    rules, propagation -> common, propagation -> types, propagation
+    -> .llmpropstts as dynamic external, rules -> common, rules ->
+    types, rules -> connections.llmainland with cycle: true)
+  - First declared cycle in this mainland: rules.py reads the
+    mainland that describes it. Honest declaration; the connection
+    notes the cycle is harmless.
+
+Smoke tests (all pass):
+  $ python llmisland_tooling.py prop-start --cascade game.js input.js ui.js \
+      --origin "rc7 smoke test"
+  -> creates .llmpropstts with 3 pending
+  $ python llmisland_tooling.py prop-status
+  -> in-progress, 0/3, origin shown
+  $ python llmisland_tooling.py prop-done --island game.js   (x3)
+  -> last call auto-deletes .llmpropstts
+  $ python llmisland_tooling.py prop-status
+  -> "no cascade in progress"
+  $ python llmisland_tooling.py validate-rules
+  -> AR-001..AR-004 self-checkable, AR-005 not (after the regex fix)
+
+---
+
 ## v0.3-rc6 — check-stale, check-decay, spec --topic
 
 Three subcommands wired into the orchestrator. The first dogfood

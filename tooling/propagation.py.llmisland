@@ -1,0 +1,419 @@
+---HEADER---
+file:                  tooling/propagation.py
+language:              python
+role:                  Four subcommands managing the .llmpropstts file:
+                       prop-start (create cascade), prop-done (mark
+                       island complete; auto-deletes file when pending
+                       empties), prop-status (read state), prop-finish
+                       (delete file; refuses if pending without --force).
+layer:                 data
+status:                verified
+confidence:            high (rationale: authored fresh in rc7, smoke-
+                       tested end-to-end with prop-start -> 3x prop-done
+                       -> auto-finish -> prop-status -> no-cascade)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc7-2026-05-05
+maintained-by:         llm
+exports:
+  - PROPSTTS_FILE
+  - cmd_prop_start
+  - setup_prop_start
+  - cmd_prop_done
+  - setup_prop_done
+  - cmd_prop_status
+  - setup_prop_status
+  - cmd_prop_finish
+  - setup_prop_finish
+  - SUBCOMMANDS
+imports:
+  - argparse
+  - datetime                  :: datetime, timezone
+  - pathlib                   :: Path
+  - tooling.common            :: find_project_root
+  - tooling.types             :: Finding, Report
+depends-on:
+  - llmisland_tooling.py      :: orchestrator iterates SUBCOMMANDS
+  - .llmpropstts (runtime)    :: created/read/written/deleted by these
+                                  subcommands at the project root
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: PROPSTTS_FILE
+kind:           constant
+pure:           true
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   none
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - all four cmd_prop_* functions :: filesystem path construction
+calls:
+  - none
+expects:
+  - none
+runtime-dependencies:
+  - none
+tests:
+  unit:       none — string literal
+  regression: none
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: cmd_prop_start
+kind:           function
+pure:           false (filesystem write + reads system clock)
+total:          true
+latency-budget: <100ms
+effects:
+  reads:    filesystem (existing .llmpropstts), system clock
+  mutates:  filesystem (creates .llmpropstts at project root)
+  allocs:   data dict + Report
+  throws:   never (catches filesystem errors via OS path checks)
+  async:    false
+  io:       filesystem write
+called-by:
+  - llmisland_tooling.main :: dispatch on 'prop-start'
+calls:
+  - find_project_root, _read, _write, datetime.now
+expects:
+  - args.cascade is a non-empty list of filenames
+  - .llmpropstts MUST NOT already exist (refuses to clobber)
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: rc7 smoke test passed
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: clobber prevention is the only safety;
+                                  if the existing-check fails, the user
+                                  loses an in-progress cascade)
+fragility-note: the existing-cascade check is the load-bearing safety
+                here. If _read returns None on a malformed but present
+                .llmpropstts, prop-start would overwrite it. Acceptable
+                for now because manual edits are discouraged (see
+                SPEC/07_PROPAGATION.md), but rc8 validate could add a
+                check that .llmpropstts has the expected shape.
+
+SYMBOL: cmd_prop_done
+kind:           function
+pure:           false (filesystem read + write or delete)
+total:          true
+latency-budget: <50ms
+effects:
+  reads:    filesystem (.llmpropstts)
+  mutates:  filesystem (rewrites .llmpropstts; deletes when pending empty)
+  allocs:   data dict + Report
+  throws:   never
+  async:    false
+  io:       filesystem read+write
+called-by:
+  - llmisland_tooling.main :: dispatch on 'prop-done'
+calls:
+  - find_project_root, _read, _write, _normalize_island, Path.unlink
+expects:
+  - args.island is a string (with or without .llmisland suffix)
+  - .llmpropstts exists (returns no-cascade error otherwise)
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: rc7 smoke test: completing the last pending island
+              correctly auto-deletes .llmpropstts
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: auto-delete on empty pending is the
+                                  trickiest path; a future change that
+                                  breaks it leaves orphan .llmpropstts
+                                  files in projects)
+fragility-note: rc8 validate.py should add a check for .llmpropstts
+                with empty pending — that is an inconsistent state
+                that prop-done is supposed to prevent.
+
+SYMBOL: cmd_prop_status
+kind:           function
+pure:           false (filesystem read)
+total:          true
+latency-budget: <50ms
+effects:
+  reads:    filesystem (.llmpropstts)
+  mutates:  none
+  allocs:   data dict + Report
+  throws:   never
+  async:    false
+  io:       filesystem read
+called-by:
+  - llmisland_tooling.main :: dispatch on 'prop-status'
+calls:
+  - find_project_root, _read
+expects:
+  - .llmpropstts exists OR is missing (both are valid states)
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: rc7 smoke test: reports cascade_open: false when missing
+              and cascade_open: true with full state when present
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: cmd_prop_finish
+kind:           function
+pure:           false (filesystem read + delete)
+total:          true
+latency-budget: <50ms
+effects:
+  reads:    filesystem (.llmpropstts)
+  mutates:  filesystem (deletes .llmpropstts)
+  allocs:   data dict + Report
+  throws:   never
+  async:    false
+  io:       filesystem read+delete
+called-by:
+  - llmisland_tooling.main :: dispatch on 'prop-finish'
+calls:
+  - find_project_root, _read, Path.unlink
+expects:
+  - args.force is bool
+  - .llmpropstts exists OR is missing (both are valid states)
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: rc7 smoke test: refuses without --force when pending
+              remain; force-deletes with abandoned-pending warning
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: setup_prop_start
+kind:           function
+pure:           true (mutates parser passed in)
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  argparse.ArgumentParser
+  allocs:   none meaningful
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser
+calls:
+  - parser.add_argument
+expects:
+  - parser supports add_argument
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: setup_prop_done
+kind:           function
+pure:           true
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  argparse.ArgumentParser
+  allocs:   none meaningful
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser
+calls:
+  - parser.add_argument
+expects:
+  - parser supports add_argument
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: setup_prop_status
+kind:           function
+pure:           true
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  none (no flags to add)
+  allocs:   none
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser
+calls:
+  - none
+expects:
+  - none
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: setup_prop_finish
+kind:           function
+pure:           true
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  argparse.ArgumentParser
+  allocs:   none meaningful
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser
+calls:
+  - parser.add_argument
+expects:
+  - parser supports add_argument
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: SUBCOMMANDS
+kind:           constant
+pure:           true
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   one dict at import time
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser :: iterates module.SUBCOMMANDS
+calls:
+  - none
+expects:
+  - keys: prop-start, prop-done, prop-status, prop-finish
+  - values: (setup_fn, handler_fn, helptext) tuples
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - changes to the .llmpropstts on-disk format break every command in
+    this module and break manual fallback documented in SPEC/07
+  - prop-start's clobber-prevention is load-bearing; a regression
+    there can lose an in-progress cascade
+platform-sensitivity:
+  - filesystem case sensitivity differs between Windows and POSIX;
+    .llmpropstts is one fixed name so this does not matter in
+    practice
+  - datetime.now(timezone.utc) is portable but the displayed format
+    is ISO 8601 with seconds, no fractional seconds
+config-dependencies: none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  the on-disk format of .llmpropstts is fixed
+                 (status / started / origin / pending / completed).
+                 Any change breaks SPEC/07_PROPAGATION.md's documented
+                 manual fallback and is a Tier C change.
+    established: 2026-05-05
+    evidence:    SPEC/07_PROPAGATION.md PROPAGATION STATE FILE section
+
+  - id: AC-002
+    constraint:  prop-start MUST refuse to clobber an existing
+                 .llmpropstts. Force-overriding it would silently
+                 destroy an in-progress cascade.
+    established: 2026-05-05
+    evidence:    inferred-from-design (HD-001)
+
+  - id: AC-003
+    constraint:  prop-done MUST auto-delete .llmpropstts when the
+                 last pending island is marked done. The presence
+                 of the file is itself the signal that a cascade
+                 is in progress; leaving an empty-pending file is
+                 an inconsistent state.
+    established: 2026-05-05
+    evidence:    SPEC/07_PROPAGATION.md cascade protocol step e
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  prop-start refuses clobber even with no flag override
+    reason:    the user has prop-finish --force for cleanup; there
+               is no scenario where clobbering an existing cascade
+               is the right action without explicit user intent.
+               Refusing to overwrite forces the user through finish.
+    date:      2026-05-05
+    outcome:   stable
+    evidence:  inferred-from-design
+
+  - id: HD-002
+    decision:  auto-delete on prop-done when pending becomes empty
+    reason:    SPEC/07_PROPAGATION.md says "delete .llmpropstts when
+               all pending entries are resolved" — the file's
+               presence IS the cascade-open signal. Auto-delete keeps
+               that signal honest without requiring the user to
+               remember to call prop-finish.
+    date:      2026-05-05
+    outcome:   stable
+    evidence:  SPEC/07_PROPAGATION.md
+
+  - id: HD-003
+    decision:  islands list uses "  - none" when empty, not omission
+    reason:    the SPEC/07_PROPAGATION.md format example always
+               shows pending and completed lists; making the file
+               structurally consistent across states means manual
+               readers see the same shape every time.
+    date:      2026-05-05
+    outcome:   stable
+    evidence:  SPEC/07_PROPAGATION.md format example
+
+SUPERSEDED:
+  - none yet

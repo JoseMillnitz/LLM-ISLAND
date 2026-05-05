@@ -1,7 +1,7 @@
 ---ARCHITECTURE---
 project:            llmisland-mix-tooling
-version:            0.3-rc6
-last-verified:      2026-05-04
+version:            0.3-rc7
+last-verified:      2026-05-05
 description:        Reference tooling for the LLM Island System.
                     A thin orchestrator (llmisland_tooling.py) dispatches
                     subcommands into the tooling/ package. Each subcommand
@@ -22,8 +22,8 @@ scope:              tooling-only — the spec/docs portion of mix is NOT
 layers:
   orchestration:    [llmisland_tooling.py]
   core:             [tooling/common.py, tooling/types.py]
-  io:               [tooling/stale.py, tooling/spec_router.py]
-  data:             []                       # rc7: propagation.py
+  io:               [tooling/stale.py, tooling/spec_router.py, tooling/rules.py]
+  data:             [tooling/propagation.py]
   test:             []
   config:           []
   build:            []
@@ -34,6 +34,8 @@ load-order:
   - tooling/common.py        :: helpers; loaded by every subcommand module
   - tooling/stale.py         :: registers check-stale, check-decay
   - tooling/spec_router.py   :: registers spec
+  - tooling/propagation.py   :: registers prop-start, prop-done, prop-status, prop-finish
+  - tooling/rules.py         :: registers validate-rules
   - tooling/__init__.py      :: package marker
   - llmisland_tooling.py     :: entrypoint; imports subcommand modules
 
@@ -122,6 +124,94 @@ CONNECTION: llmisland_tooling.py -> tooling/spec_router.py
   strength:     critical
   break-impact: spec is not registered
   cycle:        false
+
+CONNECTION: llmisland_tooling.py -> tooling/propagation.py
+  uses:         SUBCOMMANDS dict
+  why:          same as above, for prop-start, prop-done, prop-status, prop-finish
+  direction:    orchestration -> data
+  strength:     critical
+  break-impact: cascade lifecycle commands are not registered;
+                propagation cascades cannot be started or resumed
+                via the tool, only via manual .llmpropstts edits
+  cycle:        false
+
+CONNECTION: llmisland_tooling.py -> tooling/rules.py
+  uses:         SUBCOMMANDS dict
+  why:          same as above, for validate-rules
+  direction:    orchestration -> io
+  strength:     high
+  break-impact: validate-rules is not registered; LLM-assisted
+                compliance review (RULE 9) loses its surfacing tool
+  cycle:        false
+
+CONNECTION: tooling/propagation.py -> tooling/common.py
+  uses:         find_project_root
+  why:          all four prop-* commands operate on .llmpropstts at
+                the project root; find_project_root locates it
+  direction:    data -> core
+  strength:     critical
+  break-impact: cascade commands cannot find the right project root;
+                may operate on the wrong .llmpropstts in nested checkouts
+  cycle:        false
+
+CONNECTION: tooling/propagation.py -> tooling/types.py
+  uses:         Finding, Report
+  why:          handlers return Report; findings are Finding
+  direction:    data -> core
+  strength:     critical
+  break-impact: handlers cannot construct return values; orchestrator
+                dispatch breaks for all four prop-* commands
+  cycle:        false
+
+CONNECTION: tooling/propagation.py -> .llmpropstts
+  uses:         on-disk format (status / started / origin / pending / completed)
+  why:          this module is the canonical reader/writer of the
+                cascade state file; the format is shared with manual
+                fallback documented in SPEC/07_PROPAGATION.md
+  direction:    data -> (external — runtime state file at project root)
+  strength:     critical
+  break-impact: cascade state corruption; manual fallback breaks if
+                the format diverges from what SPEC/07 documents
+  cycle:        false
+  dynamic:      true
+  dynamic-note: the .llmpropstts file is created and deleted at runtime;
+                its presence itself signals "cascade in progress". The
+                connection is declared so future LLM sessions know the
+                shared on-disk contract is load-bearing.
+
+CONNECTION: tooling/rules.py -> tooling/common.py
+  uses:         MAINLAND_NAME, find_project_root
+  why:          rules locates the mainland by walking up from cwd
+                when --mainland is not given
+  direction:    io -> core
+  strength:     high
+  break-impact: validate-rules without --mainland cannot find the
+                mainland; --mainland fallback still works
+  cycle:        false
+
+CONNECTION: tooling/rules.py -> tooling/types.py
+  uses:         Finding, Report
+  why:          handler returns Report; per-rule entries are Finding
+  direction:    io -> core
+  strength:     critical
+  break-impact: handler cannot construct return values
+  cycle:        false
+
+CONNECTION: tooling/rules.py -> connections.llmainland
+  uses:         architectural-rules block; self-checkable sub-field
+  why:          extracts rules grouped by self-checkable: true | false
+                for LLM-assisted RULE 9 review
+  direction:    io -> (external — the mainland itself, this very file)
+  strength:     high
+  break-impact: validate-rules returns no-rules when the mainland's
+                architectural-rules block format diverges from what
+                the regex expects
+  cycle:        true
+  cycle-note:   this mainland describes a tool that reads this very
+                mainland. The cycle is real but harmless: the tool
+                fails gracefully (no-rules warning) when its parse
+                fails, and the mainland's format is constrained by
+                SPEC/04_MAINLAND.md regardless of what this tool does.
 
 CONNECTION: tooling/spec_router.py -> SPEC/
   uses:         every SPEC/NN_*.md file (read content for --topic
