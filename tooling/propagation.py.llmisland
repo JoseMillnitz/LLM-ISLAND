@@ -199,22 +199,22 @@ business-rule: N/A
 fragility:    low
 fragility-note: N/A
 
-SYMBOL: setup_prop_start
+SYMBOL: SETUP_FAMILY
 kind:           function
-pure:           true (mutates parser passed in)
+pure:           true (each mutates only the parser passed in)
 total:          true
-latency-budget: <1ms
+latency-budget: <1ms each
 effects:
   reads:    none
-  mutates:  argparse.ArgumentParser
+  mutates:  argparse.ArgumentParser passed in
   allocs:   none meaningful
   throws:   never
   async:    false
   io:       none
 called-by:
-  - llmisland_tooling.build_parser
+  - llmisland_tooling.build_parser :: at parser construction, once each
 calls:
-  - parser.add_argument
+  - parser.add_argument (setup_prop_status adds nothing — no flags)
 expects:
   - parser supports add_argument
 runtime-dependencies:
@@ -225,91 +225,13 @@ tests:
   security:   none
 business-rule: N/A
 fragility:    low
-fragility-note: N/A
-
-SYMBOL: setup_prop_done
-kind:           function
-pure:           true
-total:          true
-latency-budget: <1ms
-effects:
-  reads:    none
-  mutates:  argparse.ArgumentParser
-  allocs:   none meaningful
-  throws:   never
-  async:    false
-  io:       none
-called-by:
-  - llmisland_tooling.build_parser
-calls:
-  - parser.add_argument
-expects:
-  - parser supports add_argument
-runtime-dependencies:
-  - none
-tests:
-  unit:       none yet
-  regression: none yet
-  security:   none
-business-rule: N/A
-fragility:    low
-fragility-note: N/A
-
-SYMBOL: setup_prop_status
-kind:           function
-pure:           true
-total:          true
-latency-budget: <1ms
-effects:
-  reads:    none
-  mutates:  none (no flags to add)
-  allocs:   none
-  throws:   never
-  async:    false
-  io:       none
-called-by:
-  - llmisland_tooling.build_parser
-calls:
-  - none
-expects:
-  - none
-runtime-dependencies:
-  - none
-tests:
-  unit:       none yet
-  regression: none yet
-  security:   none
-business-rule: N/A
-fragility:    low
-fragility-note: N/A
-
-SYMBOL: setup_prop_finish
-kind:           function
-pure:           true
-total:          true
-latency-budget: <1ms
-effects:
-  reads:    none
-  mutates:  argparse.ArgumentParser
-  allocs:   none meaningful
-  throws:   never
-  async:    false
-  io:       none
-called-by:
-  - llmisland_tooling.build_parser
-calls:
-  - parser.add_argument
-expects:
-  - parser supports add_argument
-runtime-dependencies:
-  - none
-tests:
-  unit:       none yet
-  regression: none yet
-  security:   none
-business-rule: N/A
-fragility:    low
-fragility-note: N/A
+fragility-note: this is one representative entry covering setup_prop_start,
+                setup_prop_done, setup_prop_status, setup_prop_finish.
+                All four have the trivial parser-config shape; treating
+                them as a family avoids 4 near-identical SYMBOL entries.
+                If any one's behavior diverges, give it its own SYMBOL
+                entry (HD-004 in tooling/validate.py.llmisland documents
+                the same pattern for the ENUM family there).
 
 SYMBOL: SUBCOMMANDS
 kind:           constant

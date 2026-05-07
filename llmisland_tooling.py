@@ -26,7 +26,7 @@ import sys
 from dataclasses import asdict
 from typing import Callable
 
-from tooling import propagation, rules, spec_router, stale
+from tooling import propagation, rules, spec_router, stale, validate
 from tooling.types import Report
 
 # Force UTF-8 on Windows. The default Windows console encoding is cp1252,
@@ -37,12 +37,12 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-VERSION = "0.3-rc7"
+VERSION = "0.3-rc8"
 
 # Modules whose SUBCOMMANDS dicts the orchestrator picks up at parser
 # build time. Adding a new subcommand module is a two-step change: write
 # the module with a SUBCOMMANDS dict, then add it to this tuple.
-SUBCOMMAND_MODULES = (stale, spec_router, propagation, rules)
+SUBCOMMAND_MODULES = (stale, spec_router, propagation, rules, validate)
 
 
 # ---------------------------------------------------------------------------

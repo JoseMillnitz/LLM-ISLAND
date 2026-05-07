@@ -1,0 +1,136 @@
+---HEADER---
+file:                  tooling/_validate_symbols.py
+language:              python
+role:                  Per-SYMBOL validation. Walks one SYMBOL block
+                       and emits Findings for missing required fields
+                       (kind, pure, total, latency-budget, fragility),
+                       bad enum tokens, missing fragility-note when
+                       fragility >= medium, missing business-rule for
+                       test-layer SYMBOLs, and effects/tests subfield
+                       completeness. Pulled out of _validate_island.py
+                       so each file stays under the file-size rule.
+layer:                 io
+status:                verified
+confidence:            high (rationale: tests cleanly across all 8 mix
+                       islands after rc8 split; no behavior change
+                       from the merged version)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc8-2026-05-07
+maintained-by:         llm
+exports:
+  - iter_symbol_blocks
+  - validate_one_symbol
+imports:
+  - re
+  - pathlib                   :: Path
+  - tooling._enums            :: BOOL_ENUM, FRAGILITY_ENUM, SYMBOL_KIND_ENUM
+  - tooling.types             :: Finding
+depends-on:
+  - tooling/_validate_island.py :: imports both exports, calls them once
+                                    per SYMBOL block during island
+                                    validation
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: iter_symbol_blocks
+kind:           function
+pure:           true
+total:          true
+latency-budget: <10ms per island
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   list of (lineno, sub-block) tuples
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - _validate_island.validate_island :: SYMBOL section iteration
+calls:
+  - re.match
+expects:
+  - symbols_block is the raw SYMBOLS slice as list[(lineno, line)]
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: rc8 smoke test
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: validate_one_symbol
+kind:           function
+pure:           false (mutates findings list)
+total:          true
+latency-budget: <50ms per SYMBOL
+effects:
+  reads:    none (operates on the symbol block)
+  mutates:  the findings list passed in
+  allocs:   intermediate match objects, value dicts
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - _validate_island.validate_island :: once per SYMBOL block
+calls:
+  - re.match
+  - the enum_token callable injected from _validate_island
+expects:
+  - block is the SYMBOL's slice
+  - layer is the island's HEADER.layer (used to require business-rule
+    on test-layer SYMBOLs)
+  - enum_token is the function from _validate_island
+  - findings is a mutable list of Finding
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: rc8 smoke test
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: many enum / required-field branches;
+                                  format changes cascade)
+fragility-note: enum_token is injected as a parameter to avoid a
+                circular import (_validate_island imports this file;
+                cannot also import a helper FROM this file's parent
+                without cycles). When refactoring, preserve the
+                injection.
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - SPEC/02_SYMBOLS.md changes to required SYMBOL fields cascade here
+  - changes to effects/tests subfield names (currently 6 + 3) cascade
+  - any change to fragility or kind enum membership must update
+    tooling/_enums.py first
+platform-sensitivity:    none
+config-dependencies:     none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  enum_token is INJECTED, not imported. Keep it that
+                 way to avoid circular imports.
+    established: 2026-05-07
+    evidence:    HD-001
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  enum_token is passed as a parameter, not imported
+    reason:    _validate_island.py imports this module; if this
+               module also imported enum_token from _validate_island,
+               that would be a circular import. Passing enum_token
+               as a parameter keeps the import graph one-way.
+    date:      2026-05-07
+    outcome:   stable
+    evidence:  inferred-from-design
+
+SUPERSEDED:
+  - none yet

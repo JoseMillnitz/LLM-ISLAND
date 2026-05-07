@@ -1,0 +1,112 @@
+---HEADER---
+file:                  tooling/_enums.py
+language:              python
+role:                  Enum sets and required-field lists used by the
+                       format validator. Pure data; package-private.
+                       Pulled out of validate.py so each file stays
+                       under the file-size rule.
+layer:                 config
+status:                verified
+confidence:            high (rationale: pure data, line-for-line copy
+                       from validate.py rc8 split)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc8-2026-05-07
+maintained-by:         llm
+exports:
+  - LAYER_ENUM
+  - STATUS_ENUM
+  - CONFIDENCE_ENUM
+  - MAINTAINED_BY_ENUM
+  - READ_REASON_ENUM
+  - SYMBOL_KIND_ENUM
+  - FRAGILITY_ENUM
+  - SEVERITY_ENUM
+  - BOOL_ENUM
+  - BOOTSTRAP_MODE_ENUM
+  - REQUIRED_ISLAND_SECTIONS
+  - REQUIRED_HEADER_FIELDS
+  - REQUIRED_RISK_CATEGORIES
+  - REQUIRED_MAINLAND_SECTIONS
+  - REQUIRED_ARCHITECTURE_FIELDS
+imports:
+  - none (pure constants)
+depends-on:
+  - tooling/_validate_island.py    :: imports the ENUMs and required lists
+  - tooling/_validate_symbols.py   :: imports BOOL_ENUM, FRAGILITY_ENUM, SYMBOL_KIND_ENUM
+  - tooling/_validate_mainland.py  :: imports BOOTSTRAP_MODE_ENUM,
+                                       REQUIRED_ARCHITECTURE_FIELDS,
+                                       REQUIRED_MAINLAND_SECTIONS
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: ENUM_FAMILY
+kind:           constant
+pure:           true
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   one frozenset/list at import per constant
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - _validate_island, _validate_symbols, _validate_mainland :: enum checks
+calls:
+  - none
+expects:
+  - SPEC/01_HEADER.md, SPEC/02_SYMBOLS.md, SPEC/03_RISKS_MEMORY.md,
+    SPEC/04_MAINLAND.md drive the membership of these sets/lists
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet — should add: assert REQUIRED_HEADER_FIELDS
+              matches the SPEC/01 list
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: SPEC drift; spec changes to enums
+                                  must update this file in lockstep)
+fragility-note: this is one representative SYMBOL covering all 15
+                exports; they share the same fragility profile (SPEC
+                drift). Treat enum or required-field changes in any
+                spec module as Tier C cascading here.
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - any spec change to enum membership or required-field lists must
+    update the corresponding constant here in lockstep
+platform-sensitivity:    none
+config-dependencies:     none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  every constant here mirrors a SPEC/* declaration.
+                 Adding values without a spec change is a violation.
+    established: 2026-05-07
+    evidence:    inferred-from-design
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  one representative SYMBOL entry covers all 15 exports
+    reason:    every constant has the same trivial structure (pure
+               data, no I/O, no allocations beyond construction).
+               15 near-identical SYMBOL entries would inflate the
+               island for no signal. The ENUM_FAMILY entry above
+               documents the shared profile; treat any single
+               constant whose behavior diverges as a candidate for
+               its own SYMBOL entry.
+    date:      2026-05-07
+    outcome:   stable
+    evidence:  inferred-from-design (file-size rule pressure)
+
+SUPERSEDED:
+  - none yet

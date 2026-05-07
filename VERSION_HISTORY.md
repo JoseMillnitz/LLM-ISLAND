@@ -7,6 +7,180 @@ recording the release that introduced them.
 
 ---
 
+## v0.3-rc8 — validate + file-size split + tooling backlog captured
+
+Three things in this RC:
+
+1. The format validator from SPEC/05_VALIDITY.md is implemented and
+   passes mix's own islands cleanly (12 islands, 0 errors, 0 warnings
+   after the bug fixes below).
+
+2. The validator started life as a single 635-line file (well past
+   the 400-line red line). It was split into 5 files mid-RC, all
+   under 400, before commit:
+   - `tooling/validate.py` (85 LOC) — orchestration shell
+   - `tooling/_enums.py` (73 LOC) — ENUM sets + required-field lists
+   - `tooling/_validate_island.py` (312 LOC) — per-island validation
+     + parser helpers (section_lines, slice_block, find_kv,
+     block_for, enum_token)
+   - `tooling/_validate_symbols.py` (138 LOC) — per-SYMBOL validation
+     (extracted because _validate_island.py was at 425 LOC after the
+     first split — still over the red line until this further split)
+   - `tooling/_validate_mainland.py` (107 LOC) — mainland validation
+   The split is documented in HD-001 of `tooling/validate.py.llmisland`
+   and HD-002 of `tooling/_validate_island.py.llmisland`. Underscore-
+   prefixed files are package-private; the public API
+   (`validate_island`, `validate_mainland`, `cmd_validate`,
+   `setup_validate`, `SUBCOMMANDS`) is exposed via `tooling/validate.py`
+   only. `enum_token` is injected as a parameter from
+   `_validate_island` into `_validate_symbols.validate_one_symbol` to
+   avoid a circular import (HD-001 in `_validate_symbols.py.llmisland`).
+
+3. Two real bugs caught and fixed by the validator running against
+   mix's own islands during this RC:
+
+   a. The validator initially treated `confidence: high (rationale: ...)`
+      as `bad-enum` because it compared the entire value against the
+      enum set. SPEC RULE 8 (SPEC/02_SYMBOLS.md) defines the inline
+      rationale format as first-class. Fixed by adding `enum_token`
+      which strips parentheticals and trailing comments before enum
+      checks. Smoke test went from 33 errors to 0 after this fix.
+      Documented in HD-002 of `tooling/validate.py.llmisland`.
+
+   b. The validator initially flagged the
+      `tooling/rules.py -> connections.llmainland` cycle (declared
+      honestly per SPEC/04 cycle handling) as "no matching island" —
+      but the mainland is not islanded (notes.md item 8). Fixed by
+      adding `MAINLAND_NAME` to the connection-no-island skip list.
+      Documented in HD-003 of the same island.
+
+Tooling backlog captured:
+- `connections.llmainland` MHD-005 records 5 deferred-tooling ideas
+  from the fork `tooling_idea_*.md` files (File Edit Hook, Human
+  Island Editor, Security Integrity Checker, Mainland Slicer,
+  Subjective Field Linter). Each has a documented "depends on a
+  prerequisite we have not built yet" reason. The fork files
+  themselves are NOT in mix; they remain at `LLMISLAND - codex/` and
+  `LLMISLAND - antigravity/` as historical artifacts.
+- `connections.llmainland` MHD-006 records the mainland's exemption
+  from the project's 400-line file-size rule (SPEC/04 forbids
+  splitting; the file at 559 lines is governed by the spec, not
+  CONTRIBUTING.md).
+
+Orchestrator changes:
+- `SUBCOMMAND_MODULES = (stale, spec_router, propagation, rules, validate)`.
+  Eight subcommands wired total; 12 source files in `tooling/`.
+
+Islands and mainland:
+- Five new islands added (`_enums.py`, `_validate_island.py`,
+  `_validate_symbols.py`, `_validate_mainland.py`,
+  rewritten `validate.py`). All under 250 lines each.
+- `tooling/propagation.py.llmisland` trimmed: the four near-identical
+  `setup_prop_*` SYMBOL entries collapsed into one representative
+  `SETUP_FAMILY` entry (419 LOC -> 341 LOC).
+- All prior tooling islands re-verified to v0.3-rc8-2026-05-07.
+- `connections.llmainland`: 4 new files added across the layers
+  (1 in `config`, 3 in `io`); 13 new connections covering the new
+  module graph. MHD-005 (deferred tooling) and MHD-006 (mainland
+  size exemption) added.
+
+Smoke tests (all pass):
+  $ python llmisland_tooling.py validate
+  [ok] validate  summary: islands=12 errors=0 warnings=0 infos=0
+  $ python llmisland_tooling.py check-stale
+  [ok] check-stale  summary: fresh=12 stale=0 ...
+
+This RC closes the tooling phase. v0.3 final does cross-reference
+cleanup, README "Status" -> v0.3, and the git tag.
+
+---
+
+## v0.3-rc7 — propagation suite + validate-rules
+
+Last RC of the tooling phase. The format validator from SPEC/05_VALIDITY.md
+is now implemented. Mix's own islands all pass it cleanly. Two real
+issues caught and fixed in this same RC.
+
+Code added:
+- `tooling/validate.py` (~390 LOC) — full format validator. Exports
+  9 ENUM constants, 5 required-field lists, plus `validate_island`,
+  `validate_mainland`, `cmd_validate`, and `setup_validate`.
+  Checks: required island sections, required HEADER fields, all
+  9 enums (layer/status/confidence/maintained-by/read-reason/symbol-
+  kind/fragility/severity/bool/bootstrap-mode), `last-verified`
+  parseable when `status: verified`, `HEADER.file` matches companion
+  source, `effects` 6-subfield completeness, `tests` 3-subfield
+  completeness, `fragility-note` required when `fragility >= medium`,
+  `business-rule` required for test-layer SYMBOLs, security entries
+  with required fields and `severity >= medium` having guard or test,
+  MEMORY block headings present, mainland required-fields and
+  bootstrap-mode enum, and CONNECTION endpoints reference real
+  islands (with documented exemptions for `(...)`, dotfiles, and the
+  mainland's self-reference).
+
+Dogfood discoveries this RC, both fixed in the same RC:
+
+1. The validator initially treated `confidence: high (rationale: ...)`
+   as `bad-enum` because it compared the entire value (including the
+   parenthetical) against the enum set. SPEC RULE 8 (SPEC/02_SYMBOLS.md)
+   defines the inline rationale format as first-class for subjective
+   fields, so the validator was wrong. Fixed by adding `_enum_token`
+   which strips parentheticals and trailing comments before enum
+   checks. Smoke test went from 33 errors to 0 after this fix.
+   Documented in `tooling/validate.py.llmisland` HD-002 and AC-003.
+
+2. The validator initially flagged the `tooling/rules.py ->
+   connections.llmainland` cycle (declared honestly per SPEC/04
+   cycle handling) as "no matching island" — but the mainland is
+   not islanded (notes.md item 8). Fixed by adding `MAINLAND_NAME`
+   to the connection-no-island skip list. Documented in HD-003 of
+   the validate island.
+
+Orchestrator changes:
+- `SUBCOMMAND_MODULES` extended with `(validate,)`. Eight subcommands
+  in the help; nine tooling source files in `tooling/`.
+
+Islands and mainland:
+- `tooling/validate.py.llmisland` (~310 lines) — 19 exports +
+  4 historical decisions. The 9 ENUM constants share a single
+  representative SYMBOL entry (LAYER_ENUM); HD-004 documents the
+  trade-off.
+- All 3 prior tooling islands re-verified to v0.3-rc8-2026-05-07;
+  forward-looking depends-on entries promoted to concrete refs.
+- `connections.llmainland`:
+  - `io` layer extended with `tooling/validate.py`
+  - 5 new connections (orchestrator -> validate, validate -> common,
+    validate -> types, validate -> all .llmisland files as dynamic
+    external, validate -> connections.llmainland with `cycle: true`
+    and a cycle-note acknowledging the same shape as the rules.py
+    cycle)
+  - **MHD-005 added:** captures the deferred-tooling backlog from
+    the fork `tooling_idea_*.md` files. Five items deferred
+    post-v0.3 (File Edit Hook, Human Island Editor, Security
+    Integrity Checker with tamper-evident hashes, Mainland Slicer,
+    Subjective Field Linter). The fork files themselves are NOT in
+    mix; they remain at `LLMISLAND - codex/` and `LLMISLAND -
+    antigravity/` as historical artifacts.
+
+Smoke tests (all pass):
+  $ python llmisland_tooling.py validate
+  [ok] validate  summary: islands=7 errors=0 warnings=0 infos=0
+  $ python llmisland_tooling.py validate --include-examples
+  [ok] validate  summary: islands=8 errors=0 warnings=3 infos=0
+    (3 warnings are all about the v0.2-era EXAMPLES/ files that
+     predate the v0.3 format extensions; they are documentation,
+     not code, so warnings are correct severity)
+  $ python llmisland_tooling.py validate --json
+  {"command": "validate", "ok": true, "findings": [], ...}
+  $ python llmisland_tooling.py check-stale
+  [ok] check-stale  summary: fresh=7 stale=0 ...
+
+This RC closes the tooling phase. v0.3 final does cross-reference
+cleanup, README "Status" bump (drop -rc suffix), version line drop
+(-rc suffix), and the git tag.
+
+---
+
 ## v0.3-rc7 — propagation suite + validate-rules
 
 Eight subcommands wired in total now (5 new this RC). Two more

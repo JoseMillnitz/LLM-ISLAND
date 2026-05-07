@@ -12,7 +12,7 @@ confidence:            high (rationale: authored fresh in this rc and
                        reviewed against design)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc7-2026-05-05
+last-verified:         v0.3-rc8-2026-05-07
 maintained-by:         llm
 exports:
   - ISLAND_SUFFIX
@@ -35,9 +35,12 @@ depends-on:
   - tooling/spec_router.py    :: imports find_project_root
   - tooling/propagation.py    :: imports find_project_root
   - tooling/rules.py          :: imports MAINLAND_NAME, find_project_root
-  - (rc8) tooling/validate.py :: will import iter_islands,
-                                  source_for_island, parse_last_verified,
-                                  is_example_path
+  - tooling/validate.py       :: imports iter_islands
+  - tooling/_validate_island.py
+                              :: imports is_example_path, parse_last_verified,
+                                  source_for_island
+  - tooling/_validate_mainland.py
+                              :: imports MAINLAND_NAME
 translation-boundary:  none
 dynamic-boundary:      false
 

@@ -1,0 +1,111 @@
+---HEADER---
+file:                  tooling/_validate_mainland.py
+language:              python
+role:                  Mainland validator: parses connections.llmainland,
+                       checks required architecture fields, the
+                       bootstrap-mode enum, and verifies that declared
+                       CONNECTION endpoints reference real islands.
+                       Skips intentionally-external endpoints (paren
+                       placeholders, dotfiles, mainland self-reference).
+                       Package-private; re-exported via tooling/validate.py.
+layer:                 io
+status:                verified
+confidence:            high (rationale: validates the tooling mainland
+                       itself cleanly after the MAINLAND_NAME exemption
+                       fix in rc8)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc8-2026-05-07
+maintained-by:         llm
+exports:
+  - validate_mainland
+imports:
+  - re
+  - pathlib                   :: Path
+  - tooling._enums            :: BOOTSTRAP_MODE_ENUM,
+                                  REQUIRED_ARCHITECTURE_FIELDS,
+                                  REQUIRED_MAINLAND_SECTIONS
+  - tooling._validate_island  :: block_for, enum_token, find_kv,
+                                  section_lines (parser helpers)
+  - tooling.common            :: MAINLAND_NAME
+  - tooling.types             :: Finding
+depends-on:
+  - tooling/validate.py       :: re-exports validate_mainland
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: validate_mainland
+kind:           function
+pure:           false (filesystem read)
+total:          true
+latency-budget: <100ms
+effects:
+  reads:    filesystem (connections.llmainland)
+  mutates:  none
+  allocs:   list of Finding objects
+  throws:   never
+  async:    false
+  io:       filesystem read
+called-by:
+  - tooling/validate.py :: cmd_validate
+calls:
+  - Path.read_text, section_lines, block_for, find_kv, enum_token,
+    re.match
+expects:
+  - root is a pathlib.Path
+  - island_paths is a set of Path; used to verify CONNECTION
+    endpoints reference real islands
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: rc8 smoke test: tooling mainland passes after the
+              MAINLAND_NAME self-reference exemption fix
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: CONNECTION endpoint matching is
+                                  heuristic; new endpoint conventions
+                                  need exemptions added)
+fragility-note: current exemptions: paths starting with '(', '.', or
+                matching MAINLAND_NAME. New conventions (SPEC/ paths,
+                worktree mainland references) need explicit handling.
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - SPEC/04_MAINLAND.md changes to required architecture fields cascade
+  - new CONNECTION endpoint conventions need exemption updates
+platform-sensitivity:
+  - filesystem case sensitivity differs between Windows and POSIX
+config-dependencies: none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  MAINLAND_NAME ('connections.llmainland') is exempt
+                 from connection-no-island warnings. The mainland is
+                 not islanded (notes.md item 8); a self-reference in
+                 a CONNECTION is honest, not an error.
+    established: 2026-05-07
+    evidence:    HD-003 in tooling/validate.py.llmisland
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  parser helpers are imported FROM _validate_island,
+               not duplicated here
+    reason:    section_lines, block_for, find_kv, and enum_token are
+               needed by both island and mainland validation. Putting
+               them in _validate_island.py and having this module
+               import them keeps the helpers in one place. The cycle
+               of "island validates mainland references" is captured
+               in the mainland's CONNECTION list, not in code.
+    date:      2026-05-07
+    outcome:   stable
+    evidence:  inferred-from-design
+
+SUPERSEDED:
+  - none yet

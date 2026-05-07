@@ -1,0 +1,192 @@
+---HEADER---
+file:                  tooling/_validate_island.py
+language:              python
+role:                  Per-island validator: walks one .llmisland file,
+                       parses its sections, validates HEADER required
+                       fields and enum tokens, validates RISKS
+                       categories and security entries, and validates
+                       MEMORY block headings. Delegates SYMBOLS
+                       validation to tooling/_validate_symbols.py.
+                       Package-private; re-exported via tooling/validate.py.
+layer:                 io
+status:                verified
+confidence:            high (rationale: passes all 8 mix islands cleanly
+                       after the rc8 split)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc8-2026-05-07
+maintained-by:         llm
+exports:
+  - section_lines
+  - slice_block
+  - find_kv
+  - block_for
+  - enum_token
+  - validate_island
+imports:
+  - re
+  - pathlib                   :: Path
+  - tooling._enums            :: BOOL_ENUM, CONFIDENCE_ENUM, LAYER_ENUM,
+                                  MAINTAINED_BY_ENUM, READ_REASON_ENUM,
+                                  REQUIRED_HEADER_FIELDS,
+                                  REQUIRED_ISLAND_SECTIONS,
+                                  REQUIRED_RISK_CATEGORIES,
+                                  SEVERITY_ENUM, STATUS_ENUM
+  - tooling._validate_symbols :: iter_symbol_blocks, validate_one_symbol
+  - tooling.common            :: is_example_path, parse_last_verified,
+                                  source_for_island
+  - tooling.types             :: Finding
+depends-on:
+  - tooling/validate.py            :: re-exports validate_island
+  - tooling/_validate_mainland.py  :: imports section_lines, slice_block,
+                                       find_kv, block_for, enum_token
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: validate_island
+kind:           function
+pure:           false (filesystem read)
+total:          true
+latency-budget: <100ms per island
+effects:
+  reads:    filesystem (one .llmisland file)
+  mutates:  none
+  allocs:   list of Finding objects
+  throws:   never (catches OSError + UnicodeDecodeError)
+  async:    false
+  io:       filesystem read
+called-by:
+  - tooling/validate.py :: cmd_validate aggregator
+calls:
+  - section_lines, block_for, _validate_header, iter_symbol_blocks,
+    validate_one_symbol, _validate_risks, _validate_memory,
+    source_for_island, is_example_path
+expects:
+  - path is a pathlib.Path; non-existence yields encoding-error finding
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: rc8 smoke test: all 8 mix islands pass
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: regex-based parser; format changes
+                                  cascade)
+fragility-note: format changes to RULE 8 inline rationale, section
+                sentinels, or required-field lists all force updates
+                across this module + _validate_symbols + _validate_mainland.
+
+SYMBOL: section_lines
+kind:           function
+pure:           true
+total:          true
+latency-budget: <10ms per file
+effects:
+  reads:    none (operates on a list of strings)
+  mutates:  none
+  allocs:   one dict
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - validate_island, _validate_mainland :: section discovery
+calls:
+  - none
+expects:
+  - lines is list[str]
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: rc8 smoke test
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: PARSER_HELPERS
+kind:           function
+pure:           true (slice_block, find_kv, block_for, enum_token)
+total:          true
+latency-budget: <10ms each
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   small lists / strings
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - validate_island and _validate_mainland :: parsing
+calls:
+  - mostly stdlib string / list ops
+expects:
+  - inputs are well-formed lists/strings
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet — high-priority for first test pass
+  regression: rc8 smoke test
+  security:   none
+business-rule: N/A
+fragility:    medium (rationale: enum_token strips RULE 8 inline
+                                  rationale; format changes there
+                                  cascade)
+fragility-note: enum_token is the load-bearing helper that lets
+                'high (rationale: ...)' pass enum checks (HD-001 in
+                tooling/validate.py.llmisland). Cover with unit tests
+                before changing format conventions.
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - any change to RULE 8 inline-rationale format requires updating
+    enum_token in lockstep
+  - section sentinel format (---NAME---) is parsed by section_lines;
+    a format change cascades here
+platform-sensitivity:
+  - filesystem case sensitivity differs between Windows and POSIX
+config-dependencies: none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  format-only validation. Do not add semantic checks
+                 here pretending to enforce judgment.
+    established: 2026-05-07
+    evidence:    AC-001 in tooling/validate.py.llmisland (inherited)
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  parser helpers (section_lines, slice_block, find_kv,
+               block_for, enum_token) live in this file rather than
+               _enums.py
+    reason:    they are imported by both _validate_island.py (this
+               file) and _validate_mainland.py. _enums.py is pure
+               data, so behavioral helpers do not belong there.
+               Choosing this file as the canonical home keeps the
+               import graph simple: mainland validator imports
+               island validator's helpers; the reverse is never
+               needed.
+    date:      2026-05-07
+    outcome:   stable
+    evidence:  inferred-from-design
+
+  - id: HD-002
+    decision:  per-SYMBOL validation lives in _validate_symbols.py
+    reason:    _validate_one_symbol was the largest single helper at
+               ~100 LOC; pulling it out brought this file from 425 LOC
+               (over the 400 red line) down to 312 (yellow but
+               acceptable). enum_token is injected as a parameter to
+               avoid a circular import between this file and
+               _validate_symbols.
+    date:      2026-05-07
+    outcome:   stable; both files under file-size red line
+    evidence:  inferred-from-design (file-size rule pressure)
+
+SUPERSEDED:
+  - none yet

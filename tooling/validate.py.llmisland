@@ -1,0 +1,211 @@
+---HEADER---
+file:                  tooling/validate.py
+language:              python
+role:                  Validate subcommand orchestration shell. Walks
+                       every island under the project root via
+                       iter_islands, calls validate_island on each,
+                       calls validate_mainland for connections.llmainland,
+                       and aggregates findings into a Report. Holds no
+                       parsing logic of its own — the actual checks
+                       live in _validate_island, _validate_symbols,
+                       and _validate_mainland.
+layer:                 io
+status:                verified
+confidence:            high (rationale: rc8 dogfood proved the validator
+                       on mix's own 8 islands. Two real bugs caught and
+                       fixed in the same RC. After the file-size split
+                       this file is the orchestration shell only.)
+generation-pass:       false
+read-reason:           task-driven
+last-verified:         v0.3-rc8-2026-05-07
+maintained-by:         llm
+exports:
+  - cmd_validate
+  - setup_validate
+  - SUBCOMMANDS
+imports:
+  - argparse
+  - pathlib                       :: Path
+  - tooling._validate_island      :: validate_island
+  - tooling._validate_mainland    :: validate_mainland
+  - tooling.common                :: iter_islands
+  - tooling.types                 :: Finding, Report
+depends-on:
+  - llmisland_tooling.py          :: orchestrator iterates SUBCOMMANDS
+translation-boundary:  none
+dynamic-boundary:      false
+
+---SYMBOLS---
+
+SYMBOL: cmd_validate
+kind:           function
+pure:           false (drives validate_island and validate_mainland)
+total:          true
+latency-budget: O(N) where N = islands; typically <5s
+effects:
+  reads:    filesystem (every island + mainland)
+  mutates:  none
+  allocs:   aggregated Finding list + counts dict
+  throws:   never
+  async:    false
+  io:       filesystem read
+called-by:
+  - llmisland_tooling.main :: dispatch on 'validate'
+calls:
+  - iter_islands, validate_island, validate_mainland
+expects:
+  - args has .directory, .include_examples, .no_mainland, .json
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: rc8 smoke test: all 3 modes (default, --include-examples,
+              --json) pass
+  security:   none
+business-rule: N/A
+fragility:    low (rationale: thin shell; behavior lives in delegated
+                  modules)
+fragility-note: N/A
+
+SYMBOL: setup_validate
+kind:           function
+pure:           true (mutates parser passed in)
+total:          true
+latency-budget: <1ms
+effects:
+  reads:    none
+  mutates:  argparse.ArgumentParser
+  allocs:   none meaningful
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser
+calls:
+  - parser.add_argument
+expects:
+  - parser supports add_argument
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+SYMBOL: SUBCOMMANDS
+kind:           constant
+pure:           true
+total:          true
+latency-budget: N/A
+effects:
+  reads:    none
+  mutates:  none
+  allocs:   one dict at import time
+  throws:   never
+  async:    false
+  io:       none
+called-by:
+  - llmisland_tooling.build_parser :: iterates module.SUBCOMMANDS
+calls:
+  - none
+expects:
+  - {'validate': (setup_validate, cmd_validate, helptext)}
+runtime-dependencies:
+  - none
+tests:
+  unit:       none yet
+  regression: none yet
+  security:   none
+business-rule: N/A
+fragility:    low
+fragility-note: N/A
+
+---RISKS---
+
+security:                none
+regression-sensitivity:
+  - this file is intentionally thin; behavior changes belong in the
+    delegated modules (_validate_island, _validate_symbols,
+    _validate_mainland), not here
+platform-sensitivity:    none
+config-dependencies:     none
+
+---MEMORY---
+
+ACTIVE-CONSTRAINTS:
+  - id: AC-001
+    constraint:  validate.py is the orchestration shell. Do not add
+                 parsing or validation logic here; it belongs in the
+                 _validate_* modules.
+    established: 2026-05-07
+    evidence:    HD-001
+
+  - id: AC-002
+    constraint:  RULE 8 inline rationale format MUST be honored when
+                 enum-checking. enum_token in _validate_island.py is
+                 the load-bearing helper.
+    established: 2026-05-07
+    evidence:    rc8 smoke test (HD-002)
+
+  - id: AC-003
+    constraint:  MAINLAND_NAME self-reference is exempt from
+                 connection-no-island warnings. Spec docs are not
+                 islanded.
+    established: 2026-05-07
+    evidence:    rc8 smoke test (HD-003)
+
+HISTORICAL-DECISIONS:
+  - id: HD-001
+    decision:  validate.py is an orchestration shell only; the
+               format checks live in package-private modules
+    reason:    the original validate.py grew to 635 LOC, well past
+               the 400-line red line. Splitting into _enums.py,
+               _validate_island.py, _validate_symbols.py, and
+               _validate_mainland.py brought every file under the
+               red line and gave each a coherent topic. validate.py
+               is now the thin entry point that wires the pieces.
+    date:      2026-05-07
+    outcome:   stable; all files now under 400 LOC
+    evidence:  inferred-from-design (file-size rule pressure)
+
+  - id: HD-002
+    decision:  enum_token strips inline rationale before enum check
+    reason:    SPEC RULE 8 (SPEC/02_SYMBOLS.md) defines
+               'field: value (rationale: ...)' as first-class for
+               subjective fields. Without stripping, the validator
+               rejects every spec-conformant island. Smoke test in
+               rc8 went from 33 errors to 0 after this fix.
+    date:      2026-05-07
+    outcome:   stable; helper now lives in _validate_island.py
+    evidence:  rc8 smoke test results in VERSION_HISTORY rc8 entry
+
+  - id: HD-003
+    decision:  MAINLAND_NAME self-reference is exempt from
+               connection-no-island warnings
+    reason:    the mainland is not islanded (notes.md item 8). When
+               a tooling file declares a CONNECTION back to
+               connections.llmainland (legitimate — rules.py and
+               validate.py both read it), the validator should not
+               warn that the mainland has no island.
+    date:      2026-05-07
+    outcome:   stable; tooling mainland's two cycles validate cleanly
+    evidence:  rc8 smoke test results
+
+  - id: HD-004
+    decision:  format-only validation, not semantic
+    reason:    a tool can detect missing fields, bad enums, and
+               structural rules. It cannot detect whether a
+               rationale is honest or whether security review
+               actually happened. Adding semantic checks would
+               create false confidence — the tool would say 'ok'
+               when the human review was the actual gate. Limiting
+               scope keeps the contract honest.
+    date:      2026-05-07
+    outcome:   stable; matches codex's validator scope
+    evidence:  inferred-from-design
+
+SUPERSEDED:
+  - none yet

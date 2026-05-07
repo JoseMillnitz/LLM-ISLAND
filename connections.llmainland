@@ -1,7 +1,7 @@
 ---ARCHITECTURE---
 project:            llmisland-mix-tooling
-version:            0.3-rc7
-last-verified:      2026-05-05
+version:            0.3-rc8
+last-verified:      2026-05-07
 description:        Reference tooling for the LLM Island System.
                     A thin orchestrator (llmisland_tooling.py) dispatches
                     subcommands into the tooling/ package. Each subcommand
@@ -22,8 +22,12 @@ scope:              tooling-only — the spec/docs portion of mix is NOT
 layers:
   orchestration:    [llmisland_tooling.py]
   core:             [tooling/common.py, tooling/types.py]
-  io:               [tooling/stale.py, tooling/spec_router.py, tooling/rules.py]
+  io:               [tooling/stale.py, tooling/spec_router.py,
+                     tooling/rules.py, tooling/validate.py,
+                     tooling/_validate_island.py, tooling/_validate_symbols.py,
+                     tooling/_validate_mainland.py]
   data:             [tooling/propagation.py]
+  config:           [tooling/_enums.py]
   test:             []
   config:           []
   build:            []
@@ -36,6 +40,14 @@ load-order:
   - tooling/spec_router.py   :: registers spec
   - tooling/propagation.py   :: registers prop-start, prop-done, prop-status, prop-finish
   - tooling/rules.py         :: registers validate-rules
+  - tooling/_enums.py        :: enum sets / required-field lists
+  - tooling/_validate_symbols.py    :: per-SYMBOL validation
+  - tooling/_validate_island.py     :: per-island validation; imports
+                                       _enums + _validate_symbols
+  - tooling/_validate_mainland.py   :: mainland validation; imports
+                                       _enums + parser helpers from
+                                       _validate_island
+  - tooling/validate.py      :: registers validate (orchestration shell)
   - tooling/__init__.py      :: package marker
   - llmisland_tooling.py     :: entrypoint; imports subcommand modules
 
@@ -197,6 +209,168 @@ CONNECTION: tooling/rules.py -> tooling/types.py
   break-impact: handler cannot construct return values
   cycle:        false
 
+CONNECTION: llmisland_tooling.py -> tooling/validate.py
+  uses:         SUBCOMMANDS dict
+  why:          orchestrator iterates SUBCOMMAND_MODULES at parser-build
+                time and registers each entry's parser + handler
+  direction:    orchestration -> io
+  strength:     critical
+  break-impact: validate is not registered; the format validator
+                (the deepest checker in the suite) becomes inaccessible
+  cycle:        false
+
+CONNECTION: tooling/validate.py -> tooling/_validate_island.py
+  uses:         validate_island
+  why:          validate.py is the orchestration shell; per-island
+                validation lives in _validate_island.py (split rc8)
+  direction:    io -> io
+  strength:     critical
+  break-impact: cmd_validate cannot validate any island
+  cycle:        false
+
+CONNECTION: tooling/validate.py -> tooling/_validate_mainland.py
+  uses:         validate_mainland
+  why:          mainland-specific checks live there
+  direction:    io -> io
+  strength:     critical
+  break-impact: cmd_validate cannot validate the mainland
+  cycle:        false
+
+CONNECTION: tooling/_validate_island.py -> tooling/_enums.py
+  uses:         BOOL_ENUM, CONFIDENCE_ENUM, LAYER_ENUM,
+                MAINTAINED_BY_ENUM, READ_REASON_ENUM,
+                REQUIRED_HEADER_FIELDS, REQUIRED_ISLAND_SECTIONS,
+                REQUIRED_RISK_CATEGORIES, SEVERITY_ENUM, STATUS_ENUM
+  why:          enum-checking + required-field iteration
+  direction:    io -> config
+  strength:     critical
+  break-impact: per-island validation cannot enum-check anything
+  cycle:        false
+
+CONNECTION: tooling/_validate_island.py -> tooling/_validate_symbols.py
+  uses:         iter_symbol_blocks, validate_one_symbol
+  why:          per-SYMBOL validation lives in _validate_symbols.py
+                (extracted in rc8 to keep _validate_island under the
+                file-size red line)
+  direction:    io -> io
+  strength:     critical
+  break-impact: SYMBOLS section validation skipped
+  cycle:        false
+
+CONNECTION: tooling/_validate_symbols.py -> tooling/_enums.py
+  uses:         BOOL_ENUM, FRAGILITY_ENUM, SYMBOL_KIND_ENUM
+  why:          enum-checking inside SYMBOL entries
+  direction:    io -> config
+  strength:     critical
+  break-impact: SYMBOL enum checks fail
+  cycle:        false
+
+CONNECTION: tooling/_validate_mainland.py -> tooling/_enums.py
+  uses:         BOOTSTRAP_MODE_ENUM, REQUIRED_ARCHITECTURE_FIELDS,
+                REQUIRED_MAINLAND_SECTIONS
+  why:          mainland enum-checks + required-section/field iteration
+  direction:    io -> config
+  strength:     critical
+  break-impact: mainland validation cannot enum-check
+  cycle:        false
+
+CONNECTION: tooling/_validate_mainland.py -> tooling/_validate_island.py
+  uses:         block_for, enum_token, find_kv, section_lines (parser
+                helpers shared between island and mainland validation)
+  why:          parser helpers live with island validation; mainland
+                imports them rather than duplicating
+  direction:    io -> io
+  strength:     critical
+  break-impact: mainland cannot parse sections
+  cycle:        false
+
+CONNECTION: tooling/_validate_island.py -> tooling/common.py
+  uses:         is_example_path, parse_last_verified, source_for_island
+  why:          per-island validation needs source-companion lookup
+                and date parsing
+  direction:    io -> core
+  strength:     critical
+  break-impact: per-island validation cannot resolve source files
+                or parse last-verified
+  cycle:        false
+
+CONNECTION: tooling/_validate_mainland.py -> tooling/common.py
+  uses:         MAINLAND_NAME
+  why:          locate the mainland file at the project root
+  direction:    io -> core
+  strength:     high
+  break-impact: mainland file cannot be located
+  cycle:        false
+
+CONNECTION: tooling/validate.py -> tooling/common.py
+  uses:         iter_islands
+  why:          orchestration shell walks islands once for the validator
+  direction:    io -> core
+  strength:     critical
+  break-impact: validate cannot enumerate islands
+  cycle:        false
+
+CONNECTION: tooling/validate.py -> tooling/types.py
+  uses:         Finding, Report
+  why:          handler returns Report; aggregated findings are Finding
+  direction:    io -> core
+  strength:     critical
+  break-impact: handler cannot construct return values
+  cycle:        false
+
+CONNECTION: tooling/_validate_island.py -> tooling/types.py
+  uses:         Finding
+  why:          per-island helpers emit Findings
+  direction:    io -> core
+  strength:     critical
+  break-impact: validation findings cannot be constructed
+  cycle:        false
+
+CONNECTION: tooling/_validate_symbols.py -> tooling/types.py
+  uses:         Finding
+  why:          per-SYMBOL helpers emit Findings
+  direction:    io -> core
+  strength:     critical
+  break-impact: SYMBOL validation findings cannot be constructed
+  cycle:        false
+
+CONNECTION: tooling/_validate_mainland.py -> tooling/types.py
+  uses:         Finding
+  why:          mainland helpers emit Findings
+  direction:    io -> core
+  strength:     critical
+  break-impact: mainland validation findings cannot be constructed
+  cycle:        false
+
+CONNECTION: tooling/validate.py -> all .llmisland files
+  uses:         the full island file format (sections, fields, enums)
+  why:          validate parses every island as input
+  direction:    io -> (external — every islanded file in the project)
+  strength:     critical
+  break-impact: validate produces false-positive errors when format
+                conventions diverge from what the validator expects
+  cycle:        false
+  dynamic:      true
+  dynamic-note: islanded files are themselves the input; the set is
+                discovered at runtime via iter_islands. validate's job
+                IS reading them, so this connection is core to its
+                purpose, not a side effect.
+
+CONNECTION: tooling/validate.py -> connections.llmainland
+  uses:         the mainland file format (architecture fields, layer
+                lists, CONNECTION endpoints, bootstrap-mode enum)
+  why:          validate_mainland parses the mainland for architecture
+                checks and verifies CONNECTION endpoints reference real
+                islands
+  direction:    io -> (external — the mainland itself, this very file)
+  strength:     high
+  break-impact: mainland-side validation breaks; islands still get
+                checked
+  cycle:        true
+  cycle-note:   this mainland describes a tool that reads this very
+                mainland — same shape as the rules.py cycle below.
+                Honest declaration; harmless.
+
 CONNECTION: tooling/rules.py -> connections.llmainland
   uses:         architectural-rules block; self-checkable sub-field
   why:          extracts rules grouped by self-checkable: true | false
@@ -343,6 +517,64 @@ HISTORICAL-DECISIONS:
     outcome:   propagation-status field stays at "idle"; tooling/
                propagation.py (rc7) manages the .llmpropstts file
     evidence:  inferred-from-tooling questions responses.md
+
+  - id: MHD-006
+    decision:  this mainland file is exempt from the project's
+               400-line file-size rule
+    reason:    SPEC/04_MAINLAND.md explicitly forbids splitting the
+               mainland into a .history file or any other partition.
+               The selective read protocol (SPEC/04 + LLM_BOOT.md
+               STEP 1) is the alternative — readers never load the
+               full mainland anyway. Its size scales with the
+               number of source files in scope; growth past 400 is
+               an architectural fact, not a rule violation. The
+               file-size rule in CONTRIBUTING.md applies to spec
+               modules and tooling source; the mainland is governed
+               by SPEC/04 instead.
+    date:      2026-05-07
+    outcome:   stable; the mainland will continue to grow as the
+               tooling layer grows. If it ever becomes a real reading
+               problem, the answer is to introduce workspace.llmainland
+               for monorepo splits (SPEC/10), not to fragment a single
+               project's mainland.
+    evidence:  SPEC/04_MAINLAND.md "NOTE ON SPLITTING THE MAINLAND"
+
+  - id: MHD-005
+    decision:  v0.3 ships 8 subcommands; remaining tooling ideas are
+               recorded as deferred backlog, not built
+    reason:    fork roadmaps (codex tooling_idea + antigravity
+               tooling_idea_antigravity, both retained outside mix as
+               historical artifacts) listed several more tools. Each
+               was evaluated against the rule "if the tool would need
+               to invent policy, the policy is not ready." The
+               following are deferred to a post-v0.3 release:
+               - File Edit Hook (auto-mark maintained-by:
+                 human-unreviewed on git pre-commit) — depends on a
+                 git/editor integration story we have not designed.
+                 Antigravity flagged this as "too heavy for now."
+               - Human Island Editor (structured form for human edits
+                 enforcing required fields) — useful but requires UI
+                 design that does not fit the LLM-driven scope yet.
+               - Security Integrity Checker (tamper-evident hashes for
+                 high-severity islands) — depends on a signing scheme
+                 we have not picked. SPEC/11_SECURITY.md acknowledges
+                 the surface; the tool can wait.
+               - Mainland Slicer (output a task-specific subset of
+                 the mainland) — selective read protocol in
+                 SPEC/04_MAINLAND.md addresses the underlying problem
+                 by prompting; tooling extension is later optimization.
+               - Subjective Field Linter (reject confidence/fragility
+                 above low without rationale) — partially covered by
+                 validate.py's _enum_token + RULE 8 awareness; full
+                 rationale-quality check needs semantic judgment a
+                 tool cannot provide.
+    date:      2026-05-07
+    outcome:   v0.3 ships 8 subcommands. Backlog above carries
+               forward; each item gets re-evaluated when its
+               prerequisite (UI design, signing scheme, etc.) is ready.
+    evidence:  inferred-from-tooling_idea (fork-side files retained
+               as historical artifacts at LLMISLAND - codex/ and
+               LLMISLAND - antigravity/; not present in mix)
 
 SUPERSEDED:
   - none yet
