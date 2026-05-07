@@ -5,7 +5,7 @@
 
 ## WHAT THIS PROJECT USES
 
-This project uses the LLM Island System (v0.2).
+This project uses the LLM Island System (v0.3).
 Files: `.llmisland` (per source), `connections.llmainland` (root), `.llwasland` (archive).
 Full spec: `LLMISLAND_SPEC.md` — read only when you need format details.
 

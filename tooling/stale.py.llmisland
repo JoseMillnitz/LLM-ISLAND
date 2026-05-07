@@ -13,7 +13,7 @@ confidence:            high (rationale: authored fresh in rc6, smoke-
                        reported staleness)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc6-2026-05-04
+last-verified:         v0.3-2026-05-07
 maintained-by:         llm
 exports:
   - cmd_check_stale

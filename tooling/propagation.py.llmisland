@@ -13,7 +13,7 @@ confidence:            high (rationale: authored fresh in rc7, smoke-
                        -> auto-finish -> prop-status -> no-cascade)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc7-2026-05-05
+last-verified:         v0.3-2026-05-07
 maintained-by:         llm
 exports:
   - PROPSTTS_FILE

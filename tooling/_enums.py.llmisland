@@ -11,7 +11,7 @@ confidence:            high (rationale: pure data, line-for-line copy
                        from validate.py rc8 split)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc8-2026-05-07
+last-verified:         v0.3-2026-05-07
 maintained-by:         llm
 exports:
   - LAYER_ENUM

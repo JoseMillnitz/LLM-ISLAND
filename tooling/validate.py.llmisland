@@ -17,7 +17,7 @@ confidence:            high (rationale: rc8 dogfood proved the validator
                        this file is the orchestration shell only.)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc8-2026-05-07
+last-verified:         v0.3-2026-05-07
 maintained-by:         llm
 exports:
   - cmd_validate

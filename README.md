@@ -133,31 +133,117 @@ It aligns naturally with Extreme Programming: collective code ownership becomes 
 
 ## Status
 
-The current spec is **v0.3-rc1** — the first of a small chain of release
-candidates that progressively deliver v0.3.
+The current spec is **v0.3 — Ouroboros**.
 
-The big shifts since v0.2:
-- 14 issues from adversarial review (Gemini / Grok / Mistral) resolved across
-  v0.2.1 through v0.2.14.
-- Tiered update obligations (Tier A/B/C) replace the all-or-nothing rule.
-- Propagation cascades are tracked in a separate `.llmpropstts` file
-  managed by `llmisland_tooling.py`, not in the mainland.
-- `generation-pass`, `read-reason`, `runtime-dependencies`,
-  `confidence-review-due`, `dynamic-boundary`, `cycle`,
-  `self-checkable` (architectural-rules), `condition` (CONTRACTS),
-  `security-reviewed` (maintained-by) added.
-- Two new core principles: UNCERTAINTY OVER PLAUSIBILITY and
+The codename is the project's structure: tooling for the project that
+has the project for the tooling. The mainland describes the tooling,
+the tooling validates the mainland, the islands describe the tools
+that read the islands. v0.3 is the release where that loop closes for
+the first time.
+
+What v0.3 ships:
+
+- **All 14 issues from adversarial review resolved.** Gemini, Grok, and
+  Mistral attacked the v0.2 spec; every cataloged issue was resolved
+  across the v0.2.1—v0.2.14 release chain.
+- **Tiered update obligations** (Tier A / B / C) replace the
+  all-or-nothing maintenance rule.
+- **Propagation cascades** are tracked in a separate `.llmpropstts`
+  file managed by `llmisland_tooling.py`, not the mainland.
+- **New island fields** for v0.2.x format extensions: `generation-pass`,
+  `read-reason`, `runtime-dependencies`, `confidence-review-due`,
+  `dynamic-boundary`, `cycle`, `self-checkable` (architectural-rules),
+  `condition` (CONTRACTS), `security-reviewed` (maintained-by).
+- **Two new core principles:** UNCERTAINTY OVER PLAUSIBILITY and
   DETECTABLE FAILURE.
-- File-size discipline (~200 / ~300 / 400+) added to `CONTRIBUTING.md`.
+- **Modular spec.** `LLMISLAND_SPEC.md` is now a 47-line router with a
+  topic table; the operational content lives under `SPEC/` as 14
+  focused modules.
+- **Reference tooling** (`llmisland_tooling.py` + `tooling/` package):
+  8 subcommands — `check-stale`, `check-decay`, `spec`, `prop-start`,
+  `prop-done`, `prop-status`, `prop-finish`, `validate-rules`,
+  `validate`. Standard library only; no third-party dependencies.
+- **Self-applied.** Mix is the first project to describe itself with
+  the system. Every Python source under `tooling/` ships with a
+  hand-written `.llmisland`; `connections.llmainland` describes the
+  tooling architecture; the validator passes mix's own metadata
+  cleanly. The system contains itself.
+- **File-size discipline** (~200 / ~300 / 400+) added to
+  `CONTRIBUTING.md` and applied across the project.
 
 Read `VERSION_HISTORY.md` for the dated changelog of every release.
 
-**Remaining v0.3 work** (release candidate chain):
-- v0.3-rc2: split `LLMISLAND_SPEC.md` into modular `SPEC/` files
-  (island format modules)
-- v0.3-rc3: operational sections to `SPEC/` (mainland, tiers, propagation, validity)
-- v0.3-rc4: remaining sections to `SPEC/`
-- v0.3 final: router cleanup + cross-reference updates + tag
+---
+
+## Where this is going
+
+v0.3 closes the prompting + reference-tooling design space. The forward
+work is about making the system cheaper to use, easier to integrate,
+and easier to install. None of the directions below are committed —
+they signal where the project is headed, not what is queued. They span
+multiple future versions; there is no roadmap yet that pins them to
+specific releases.
+
+**Less LLM context per task.** Most current cost is the LLM reading
+and writing islands directly. Two shifts to reduce that:
+- A `bootstrap` subcommand that creates a fresh project's MVM mainland
+  and starter island templates from a template, so an LLM does not
+  have to read `EXAMPLES/` to remember the format.
+- Field-level tooling for routine island updates: an `island update
+  FILE --field last-verified --value v0.3-2026-05-07` style command
+  instead of the LLM rewriting the file. Same shape for bumping
+  versions, marking `maintained-by`, etc.
+
+**API entrypoints for non-CLI integration.** Today the tool is invoked
+from the command line. To plug into IDEs, CI runners, or non-Python
+toolchains, the project needs entrypoints (HTTP and/or library) that
+expose every CLI capability programmatically. The spec is already
+language-agnostic; the API surface should preserve that — a non-Python
+caller should be able to validate, route, or update without
+reimplementing the regex parsers.
+
+**Cross-platform without a runtime.** The tooling currently needs
+Python 3.10+. For broader adoption that is a real friction. Three open
+candidates, no decision yet:
+- PyInstaller / Nuitka — bundle the existing Python tooling. Easy but
+  produces large binaries and is fragile on Windows.
+- Rewrite in a binary-producing language (Go, Rust). Single static
+  binary, zero runtime dependencies. Substantial work but solves the
+  friction completely.
+- Hybrid — Python for the reference implementation, a separate static
+  binary for the most-invoked subcommands (validate, check-stale,
+  spec --topic).
+The locked principle for now: standard library only, so any future
+binary path stays small.
+
+**Programmatic adoption.** Today the system needs hand-authored
+islands per file. Future: auto-island generation from source ASTs,
+runtime hooks for existing projects, IDE integration. Would change
+the bootstrap story — `bootstrap-mode: legacy` projects could be
+picked up automatically rather than requiring a phase-1 generation
+pass.
+
+**Documentation islands.** v0.3's tooling layer is islanded; spec
+docs are not (per the locked tooling-only scope). A future release
+could extend the format to handle markdown-as-source so the system
+describes its own documentation. The project's `bootstrap-mode` would
+flip to `greenfield`.
+
+**Cross-pollination from existing tools.** The mainland is essentially
+a dependency graph; the considerations log is essentially append-only
+event history. There's likely value in absorbing patterns from tools
+that do these well — visualization layers like `graphify` for the
+mainland graph, append-only event-history conventions for the
+considerations log — once the core is stable. The specific ideas to
+pick up are not yet enumerated; this is a "see what fits later"
+direction, not a queued task.
+
+**Deferred-tooling backlog.** `connections.llmainland` MHD-005 lists
+five ideas from the fork `tooling_idea_*.md` files that did not make
+v0.3 because their prerequisites were not ready: File Edit Hook,
+Human Island Editor, Security Integrity Checker, Mainland Slicer,
+Subjective Field Linter. Each gets built when its prerequisite
+design lands.
 
 ---
 

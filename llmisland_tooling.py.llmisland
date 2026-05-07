@@ -11,7 +11,7 @@ confidence:            high (rationale: authored fresh, smoke-tested in
                        rc5 and rc6 against mix's own islands)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc8-2026-05-07
+last-verified:         v0.3-2026-05-07
 maintained-by:         llm
 exports:
   - VERSION

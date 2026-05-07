@@ -89,7 +89,7 @@ If your project has a `CLAUDE.md`, `AGENTS.md`, or similar file, add:
 ```markdown
 ## LLM Island System
 
-This project uses the LLM Island System (v0.2).
+This project uses the LLM Island System (v0.3).
 
 At the start of every session, paste the contents of `LLM_BOOT.md`.
 It will tell you which mode to use and what to read.

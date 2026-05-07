@@ -13,7 +13,7 @@ confidence:            high (rationale: authored fresh in this rc and
                        contract in the mainland)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc8-2026-05-07
+last-verified:         v0.3-2026-05-07
 maintained-by:         llm
 exports:
   - Finding

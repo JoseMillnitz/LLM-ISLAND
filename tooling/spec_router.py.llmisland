@@ -12,7 +12,7 @@ confidence:            high (rationale: authored fresh in rc6, smoke-
                        tested for all 14 SPEC/ files via topic keys)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc6-2026-05-04
+last-verified:         v0.3-2026-05-07
 maintained-by:         llm
 exports:
   - SPEC_TOPIC_MAP

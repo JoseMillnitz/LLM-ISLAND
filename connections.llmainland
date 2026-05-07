@@ -1,6 +1,6 @@
 ---ARCHITECTURE---
 project:            llmisland-mix-tooling
-version:            0.3-rc8
+version:            0.3
 last-verified:      2026-05-07
 description:        Reference tooling for the LLM Island System.
                     A thin orchestrator (llmisland_tooling.py) dispatches

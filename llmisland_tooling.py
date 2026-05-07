@@ -5,14 +5,14 @@ Single entrypoint. Constructs the argparse tree and dispatches subcommands
 into the ``tooling/`` package. Holds no business logic of its own; every
 subcommand's behavior lives in its own module.
 
-Subcommands ship across the v0.3-rc5 → v0.3-rc8 release candidate chain:
-  rc5: skeleton (this file + tooling/common.py); no subcommands wired yet.
+Eight subcommands ship in v0.3 (built across the rc5—rc8 chain):
+  rc5: skeleton (orchestrator + tooling/common.py + tooling/types.py)
   rc6: check-stale, check-decay, spec
   rc7: prop-start, prop-done, prop-status, prop-finish, validate-rules
-  rc8: validate
+  rc8: validate (split across _enums / _validate_island / _validate_symbols
+       / _validate_mainland to keep each file under the size rule)
 
-Run ``python llmisland_tooling.py --help`` to see the currently wired
-subcommands.
+Run ``python llmisland_tooling.py --help`` for the live subcommand list.
 
 Standard library only. Python 3.10+.
 """
@@ -37,7 +37,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-VERSION = "0.3-rc8"
+VERSION = "0.3"
 
 # Modules whose SUBCOMMANDS dicts the orchestrator picks up at parser
 # build time. Adding a new subcommand module is a two-step change: write

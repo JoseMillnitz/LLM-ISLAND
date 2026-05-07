@@ -16,7 +16,7 @@ confidence:            high (rationale: tests cleanly across all 8 mix
                        from the merged version)
 generation-pass:       false
 read-reason:           task-driven
-last-verified:         v0.3-rc8-2026-05-07
+last-verified:         v0.3-2026-05-07
 maintained-by:         llm
 exports:
   - iter_symbol_blocks

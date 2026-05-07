@@ -7,6 +7,97 @@ recording the release that introduced them.
 
 ---
 
+## v0.3 — Ouroboros
+
+The release. v0.3 aggregates everything that landed in v0.2.1—v0.2.14
+(the spec phase) and v0.3-rc1—rc8 (the modular split + tooling phase)
+into a single named release.
+
+The codename names the structure: tooling for the project that has
+the project for the tooling. The mainland describes the tooling, the
+tooling validates the mainland, the islands describe the tools that
+read the islands. v0.3 is the release where that loop closes for
+the first time — the snake reaches its tail.
+
+Mix is the first project to describe itself with the system: 12
+islands describe the 9-source-file tooling layer,
+`connections.llmainland` describes the tooling architecture, and the
+validator passes mix's own metadata cleanly.
+
+What shipped in v0.3:
+
+- **All 14 ATTACK_ANALYSIS issues resolved** across v0.2.1—v0.2.14
+  (3 CRITICAL, 7 HIGH, 4 MEDIUM, 1 LOW-acknowledged). The
+  `ATTACK_ANALYSIS.md` file was deleted in v0.3-rc1; the per-issue
+  resolutions are recorded as v0.2.x entries below.
+- **Modular spec** under `SPEC/` (14 files + README) replaces the
+  monolithic `LLMISLAND_SPEC.md`. The spec file becomes a 47-line
+  router with a topic table.
+- **`VERSION_HISTORY.md`** extracted as a separate file (this one).
+- **Reference tooling**: `llmisland_tooling.py` orchestrator + the
+  `tooling/` package. 8 subcommands wired across rc5—rc8:
+  - `check-stale` and `check-decay` (rc6)
+  - `spec --topic` (rc6) — context router for SPEC/* lookups
+  - `prop-start`, `prop-done`, `prop-status`, `prop-finish` (rc7) —
+    `.llmpropstts` cascade lifecycle
+  - `validate-rules` (rc7) — extract self-checkable architectural rules
+  - `validate` (rc8) — full island + mainland format check
+  Standard library only; Python 3.10+; zero external dependencies.
+- **Self-applied**: every Python source in mix's tooling layer carries
+  an island; `connections.llmainland` describes the tooling
+  architecture; the validator passes mix's own 12 islands cleanly. The
+  system contains itself.
+- **File-size discipline** (~200 / ~300 / 400+) added to
+  `CONTRIBUTING.md` and applied across the project. The mainland is
+  exempt (SPEC/04 forbids splitting it; MHD-006 records this).
+- **Two new core principles**: UNCERTAINTY OVER PLAUSIBILITY (v0.2.3)
+  and DETECTABLE FAILURE (v0.2.6).
+
+Bugs caught and fixed by mix using its own tooling on itself:
+- v0.3-rc6: check-stale flagged the rc5 islands as stale because their
+  `last-verified` (2026-05-03) preceded their source mtime (2026-05-04).
+  Fixed by re-verifying. The tool caught what it was designed to catch.
+- v0.3-rc7: validate-rules' regex matched both `self-checkable: true`
+  and `self-checkable: false` as self-checkable. Fix: read the captured
+  group and compare to "true" explicitly. Recorded in
+  `tooling/rules.py.llmisland` HD-001.
+- v0.3-rc8: validate flagged `confidence: high (rationale: ...)` as
+  bad-enum because the validator compared the entire value against the
+  enum set; SPEC RULE 8 defines the inline rationale format as
+  first-class. Fix: `enum_token` strips parenthetical and trailing
+  comments before enum checks. Smoke test went from 33 errors to 0
+  after the fix. Recorded in `tooling/validate.py.llmisland` HD-002.
+- v0.3-rc8: validate flagged the `tooling/rules.py ->
+  connections.llmainland` cycle as no-island. Fix: added
+  `MAINLAND_NAME` to the connection-no-island skip list. The mainland
+  is not islanded (notes.md item 8); a self-reference is honest.
+  Recorded in `tooling/validate.py.llmisland` HD-003.
+
+### What's next (non-binding direction)
+
+v0.3 closes the prompting + reference-tooling design space. Forward
+directions span multiple future releases; there is no roadmap pinning
+them to specific versions yet. See `README.md` "Where this is going"
+for detail. Summary:
+
+- Less LLM context per task: bootstrap script for example/MVM
+  generation, field-level island update commands.
+- API entrypoints (HTTP and/or library) for non-CLI integration.
+  Stay language-agnostic.
+- Cross-platform without a Python install: PyInstaller, Go/Rust
+  rewrite, or hybrid (open question).
+- Programmatic adoption: auto-island generation from source ASTs,
+  runtime hooks for existing projects.
+- Documentation islands: extend the format to handle markdown-as-source
+  so the system describes its own docs.
+- Cross-pollination: graphify-style visualization layers, event-history
+  conventions for the considerations log.
+- The 5-item deferred-tooling backlog from `connections.llmainland`
+  MHD-005 (File Edit Hook, Human Island Editor, Security Integrity
+  Checker, Mainland Slicer, Subjective Field Linter).
+
+---
+
 ## v0.3-rc8 — validate + file-size split + tooling backlog captured
 
 Three things in this RC:
@@ -118,7 +209,7 @@ Code added:
   islands (with documented exemptions for `(...)`, dotfiles, and the
   mainland's self-reference).
 
-Dogfood discoveries this RC, both fixed in the same RC:
+Self-application discoveries this RC, both fixed in the same RC:
 
 1. The validator initially treated `confidence: high (rationale: ...)`
    as `bad-enum` because it compared the entire value (including the
@@ -184,7 +275,7 @@ cleanup, README "Status" bump (drop -rc suffix), version line drop
 ## v0.3-rc7 — propagation suite + validate-rules
 
 Eight subcommands wired in total now (5 new this RC). Two more
-dogfood discoveries this RC.
+self-application discoveries this RC.
 
 Code added:
 
@@ -206,7 +297,7 @@ Orchestrator changes:
 - `SUBCOMMAND_MODULES = (stale, spec_router, propagation, rules)` —
   added the two new modules. Help text now lists eight subcommands.
 
-Dogfood discoveries this RC:
+Self-application discoveries this RC:
 
 1. The initial regex in `validate-rules` matched `self-checkable:
    true` and `self-checkable: false` as the same thing. Smoke test
@@ -261,7 +352,7 @@ Smoke tests (all pass):
 
 ## v0.3-rc6 — check-stale, check-decay, spec --topic
 
-Three subcommands wired into the orchestrator. The first dogfood
+Three subcommands wired into the orchestrator. The first self-application
 discovery of the chain happened here: when running `check-stale .`
 on mix itself, the rc5 islands correctly reported as stale because
 their `last-verified` (2026-05-03) preceded their source mtime
