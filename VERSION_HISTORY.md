@@ -19,10 +19,10 @@ tooling validates the mainland, the islands describe the tools that
 read the islands. v0.3 is the release where that loop closes for
 the first time — the snake reaches its tail.
 
-Mix is the first project to describe itself with the system: 12
+The LLM Island System is the first project to describe itself with itself: 12
 islands describe the 9-source-file tooling layer,
 `connections.llmainland` describes the tooling architecture, and the
-validator passes mix's own metadata cleanly.
+validator passes its own metadata cleanly.
 
 What shipped in v0.3:
 
@@ -43,9 +43,9 @@ What shipped in v0.3:
   - `validate-rules` (rc7) — extract self-checkable architectural rules
   - `validate` (rc8) — full island + mainland format check
   Standard library only; Python 3.10+; zero external dependencies.
-- **Self-applied**: every Python source in mix's tooling layer carries
+- **Self-applied**: every Python source in the tooling layer carries
   an island; `connections.llmainland` describes the tooling
-  architecture; the validator passes mix's own 12 islands cleanly. The
+  architecture; the validator passes its own 12 islands cleanly. The
   system contains itself.
 - **File-size discipline** (~200 / ~300 / 400+) added to
   `CONTRIBUTING.md` and applied across the project. The mainland is
@@ -53,7 +53,7 @@ What shipped in v0.3:
 - **Two new core principles**: UNCERTAINTY OVER PLAUSIBILITY (v0.2.3)
   and DETECTABLE FAILURE (v0.2.6).
 
-Bugs caught and fixed by mix using its own tooling on itself:
+Bugs caught and fixed by the project using its own tooling on itself:
 - v0.3-rc6: check-stale flagged the rc5 islands as stale because their
   `last-verified` (2026-05-03) preceded their source mtime (2026-05-04).
   Fixed by re-verifying. The tool caught what it was designed to catch.
@@ -103,7 +103,7 @@ for detail. Summary:
 Three things in this RC:
 
 1. The format validator from SPEC/05_VALIDITY.md is implemented and
-   passes mix's own islands cleanly (12 islands, 0 errors, 0 warnings
+   passes its own islands cleanly (12 islands, 0 errors, 0 warnings
    after the bug fixes below).
 
 2. The validator started life as a single 635-line file (well past
@@ -128,7 +128,7 @@ Three things in this RC:
    avoid a circular import (HD-001 in `_validate_symbols.py.llmisland`).
 
 3. Two real bugs caught and fixed by the validator running against
-   mix's own islands during this RC:
+   its own islands during this RC:
 
    a. The validator initially treated `confidence: high (rationale: ...)`
       as `bad-enum` because it compared the entire value against the
@@ -151,7 +151,7 @@ Tooling backlog captured:
   Island Editor, Security Integrity Checker, Mainland Slicer,
   Subjective Field Linter). Each has a documented "depends on a
   prerequisite we have not built yet" reason. The fork files
-  themselves are NOT in mix; they remain at `LLMISLAND - codex/` and
+  themselves are NOT in this project; they remain at `LLMISLAND - codex/` and
   `LLMISLAND - antigravity/` as historical artifacts.
 - `connections.llmainland` MHD-006 records the mainland's exemption
   from the project's 400-line file-size rule (SPEC/04 forbids
@@ -189,7 +189,7 @@ cleanup, README "Status" -> v0.3, and the git tag.
 ## v0.3-rc7 — propagation suite + validate-rules
 
 Last RC of the tooling phase. The format validator from SPEC/05_VALIDITY.md
-is now implemented. Mix's own islands all pass it cleanly. Two real
+is now implemented. The project's own islands all pass it cleanly. Two real
 issues caught and fixed in this same RC.
 
 Code added:
@@ -250,8 +250,8 @@ Islands and mainland:
     post-v0.3 (File Edit Hook, Human Island Editor, Security
     Integrity Checker with tamper-evident hashes, Mainland Slicer,
     Subjective Field Linter). The fork files themselves are NOT in
-    mix; they remain at `LLMISLAND - codex/` and `LLMISLAND -
-    antigravity/` as historical artifacts.
+    this project; they remain in the original fork directories as
+    historical artifacts.
 
 Smoke tests (all pass):
   $ python llmisland_tooling.py validate
@@ -354,7 +354,7 @@ Smoke tests (all pass):
 
 Three subcommands wired into the orchestrator. The first self-application
 discovery of the chain happened here: when running `check-stale .`
-on mix itself, the rc5 islands correctly reported as stale because
+on the project itself, the rc5 islands correctly reported as stale because
 their `last-verified` (2026-05-03) preceded their source mtime
 (2026-05-04, the actual edit date). The tool caught a real
 inconsistency in its own metadata.
@@ -432,7 +432,7 @@ Files added:
   `source_for_island`, `find_project_root`, `read_header_field`,
   `parse_last_verified`, `is_example_path`, plus `Finding` and `Report`
   dataclasses. Standard library only.
-- `connections.llmainland` — first mainland in mix. Scope is
+- `connections.llmainland` — first mainland in this project. Scope is
   declared explicitly: tooling layer only. 5 architectural rules
   (subcommand modularity, Report return shape, --json via parent
   parser, zero deps, file-size cap), 1 connection
@@ -440,7 +440,7 @@ Files added:
   (subcommand-return-shape, zero-dependency, shared-flags-via-parent),
   4 architecture-memory historical decisions documenting the locked
   design choices.
-- `llmisland_tooling.py.llmisland` — first island in mix. Documents
+- `llmisland_tooling.py.llmisland` — first island in this project. Documents
   every export with full HEADER/SYMBOLS/RISKS/MEMORY sections.
 - `tooling/common.py.llmisland` — second island. Same level of detail.
 
@@ -456,7 +456,7 @@ The empty `{}` in the subcommand list is correct for rc5: no subcommands
 are registered yet. They land in rc6 (check-stale, check-decay, spec),
 rc7 (prop-* + validate-rules), and rc8 (validate).
 
-The mix project is now its own first demonstration of the system. Any
+The project is now its own first demonstration of the system. Any
 LLM working on the tooling layer reads the islands the same way it
 would read islands on any other project.
 

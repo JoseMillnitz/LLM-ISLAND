@@ -1,5 +1,5 @@
 ---ARCHITECTURE---
-project:            llmisland-mix-tooling
+project:            llmisland-tooling
 version:            0.3
 last-verified:      2026-05-07
 description:        Reference tooling for the LLM Island System.
@@ -14,7 +14,7 @@ propagation-pending:
 bootstrap-mode:     greenfield
 bootstrap-date:     2026-05-03
 
-scope:              tooling-only — the spec/docs portion of mix is NOT
+scope:              tooling-only — the spec/docs portion of this project is NOT
                     islanded. Only the Python sources under tooling/ and
                     llmisland_tooling.py at the project root participate
                     in this mainland. See notes.md item 8 (locked).
@@ -428,7 +428,7 @@ CONTRACT: zero-dependency
   owned-by:     project root
   enforced-by:  none yet — manual review
   islands-bound:[llmisland_tooling.py, tooling/common.py]
-  violation-consequence: adopters who installed mix without pip cannot
+  violation-consequence: adopters who installed the system without pip cannot
                          run the tools; zero-friction install promise
                          broken
   fragility:    high (rationale: easy to import a third-party module
@@ -499,10 +499,10 @@ HISTORICAL-DECISIONS:
     decision:  bootstrap-mode greenfield (not legacy)
     reason:    the tooling layer is authored fresh with islands from
                day one — that matches the greenfield definition.
-               The spec/docs portion of mix predates this work, but
+               The spec/docs portion of the project predates this work, but
                this mainland's scope is the tooling layer only.
     date:      2026-05-03
-    outcome:   stable; first islands in mix are tooling-side
+    outcome:   stable; first islands in this project are tooling-side
     evidence:  inferred-from-notes.md
 
   - id: MHD-004
@@ -543,7 +543,7 @@ HISTORICAL-DECISIONS:
     decision:  v0.3 ships 8 subcommands; remaining tooling ideas are
                recorded as deferred backlog, not built
     reason:    fork roadmaps (codex tooling_idea + antigravity
-               tooling_idea_antigravity, both retained outside mix as
+               tooling_idea_antigravity, both retained outside the main repo as
                historical artifacts) listed several more tools. Each
                was evaluated against the rule "if the tool would need
                to invent policy, the policy is not ready." The
@@ -574,7 +574,7 @@ HISTORICAL-DECISIONS:
                prerequisite (UI design, signing scheme, etc.) is ready.
     evidence:  inferred-from-tooling_idea (fork-side files retained
                as historical artifacts at LLMISLAND - codex/ and
-               LLMISLAND - antigravity/; not present in mix)
+               LLMISLAND - antigravity/; not present in this project)
 
 SUPERSEDED:
   - none yet
